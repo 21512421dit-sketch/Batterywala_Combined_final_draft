@@ -39,6 +39,7 @@ def test_consent_engine_pricing_and_retention(tmp_path):
     public_page = client.get('/engine-d-carb')
     assert b'Nothing is uploaded automatically' not in public_page.data
     assert b'engine-integration.js' in public_page.data
+    assert b'engine-integration.js?v=20260914-3' in public_page.data
     assert public_page.data.count(b'<details><summary>') == 7
     assert b'"@type": "FAQPage"' in public_page.data
     assert client.post('/api/engine-d-carb/quotations', json=engine_service(consent=False)).status_code == 400
@@ -144,6 +145,17 @@ def test_service_location_is_only_required_for_other_centre(tmp_path):
     }
     assert other.json['messages']['centre_numbers'] == []
     assert 'Your requested service area is' in other.json['messages']['customer']
+
+
+def test_engine_click_to_chat_uses_business_number_and_no_api_placeholder(tmp_path):
+    app = make_app(tmp_path)
+    client = app.test_client()
+    script = client.get('/static/engine-integration.js')
+    assert script.status_code == 200
+    assert b'https://wa.me/917727005151?text=' in script.data
+    assert b'Send enquiry on WhatsApp' in script.data
+    assert b'WhatsApp setup pending' not in script.data
+    assert b'emailQuote.checked = true' in script.data
 
 
 def test_employee_empty_dropdowns_allow_manual_entry(tmp_path):

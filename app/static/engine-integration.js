@@ -92,6 +92,14 @@
   const submit = form.querySelector('.enquiry-submit, button[type="submit"]');
   const emailQuote = form.elements.emailQuote;
   const serviceEmail = form.elements.serviceEmail;
+  const emailChoiceTitle = emailQuote?.closest('label')?.querySelector('strong');
+  const emailChoiceHelp = emailQuote?.closest('label')?.querySelector('small');
+  if (emailQuote) {
+    emailQuote.defaultChecked = true;
+    emailQuote.checked = true;
+  }
+  if (emailChoiceTitle) emailChoiceTitle.textContent = 'Email my quotation automatically';
+  if (emailChoiceHelp) emailChoiceHelp.textContent = 'Checked by default. We’ll email you and notify Engine D-Carb when you submit.';
   const serviceGrid = document.querySelector('#serviceFields .form-grid');
   const serviceDetails = document.getElementById('serviceDetails')?.closest('.field');
   const locationInputs = [form.elements.area, form.elements.serviceCity, form.elements.servicePin].filter(Boolean);
@@ -155,6 +163,46 @@
     <span>I consent to Engine D-Carb and Care4Earth Enterprises storing the details I submit for 24 months to prepare and manage my quotation and analyze service demand. My information will not be sold or used for promotional marketing. I can request correction or deletion using the contact details on this website.</span>`;
   submit.before(consent);
 
+  const buildWhatsAppEnquiry = (payload, result) => {
+    const lines = ['Hello Engine D-Carb team, I submitted an enquiry through your website.'];
+    if (payload.enquiryType === 'service') {
+      lines.push(
+        '',
+        `Name: ${payload.customerName}`,
+        `Phone: ${payload.servicePhone}`,
+        payload.serviceEmail ? `Email: ${payload.serviceEmail}` : '',
+        `Vehicle: ${payload.vehicleType} — ${payload.vehicleBrand} ${payload.vehicleModel}`,
+        `Registration year: ${payload.passingYear}`,
+        `Fuel: ${payload.fuelType}`,
+        `Engine capacity: ${payload.engineCc} CC`,
+        `Kilometres driven: ${new Intl.NumberFormat('en-IN').format(Number(payload.kilometres))} km`,
+        `Preferred centre: ${result.centre.name}`,
+        `Centre/location: ${result.centre.address}`,
+        result.indicative_cost
+          ? `Indicative estimate: ${new Intl.NumberFormat('en-IN', {style: 'currency', currency: 'INR', maximumFractionDigits: 0}).format(result.indicative_cost)}`
+          : '',
+        payload.serviceDetails ? `Additional details: ${payload.serviceDetails}` : '',
+        '',
+        'Please contact me to confirm the final quotation and appointment.'
+      );
+    } else {
+      lines.push(
+        '',
+        'Enquiry type: New Engine D-Carb machine',
+        `Representative: ${payload.representativeName}`,
+        `Phone: ${payload.machinePhone}`,
+        `Email: ${payload.machineEmail}`,
+        `Company/address: ${payload.companyAddress}`,
+        `Business and experience: ${payload.businessDetails}`,
+        `Location: ${payload.machineCity} — ${payload.machinePin}`,
+        payload.machineDetails ? `Additional details: ${payload.machineDetails}` : '',
+        '',
+        'Please contact me with a suitable machine configuration and quotation.'
+      );
+    }
+    return lines.filter(Boolean).join('\n');
+  };
+
   form.addEventListener('submit', async event => {
     if (form.dataset.backendSaved === 'true') {
       delete form.dataset.backendSaved;
@@ -184,53 +232,55 @@
       form.dataset.backendSaved = 'true';
       form.requestSubmit();
       const enquiryType = payload.enquiryType;
+      const whatsappMessage = buildWhatsAppEnquiry(payload, result);
       const title = document.getElementById('quoteTitle');
       const greeting = document.getElementById('quoteGreeting');
       if (enquiryType === 'machine') {
         title.textContent = `Thank you, ${payload.representativeName}. Your machine enquiry has been received.`;
-        greeting.textContent = 'Our machine sales team will review your business requirements and contact you about the most suitable Engine D-Carb configuration. Select Continue to send the prepared enquiry on WhatsApp.';
+        greeting.textContent = 'Your enquiry is saved. You can also send the same details through WhatsApp using the button below.';
       } else {
         title.textContent = `Thank you, ${payload.customerName}. Your vehicle service enquiry has been received.`;
         const cost = result.indicative_cost
           ? ` The current tentative estimate is ${new Intl.NumberFormat('en-IN', {style: 'currency', currency: 'INR', maximumFractionDigits: 0}).format(result.indicative_cost)}; the service team will confirm the final price.`
           : '';
-        greeting.textContent = `Your vehicle details are ready for ${result.centre.name}.${cost} The two WhatsApp messages are prepared and will be sent automatically after the WhatsApp connection is configured.`;
-        const actions = document.querySelector('#quoteResult .quote-actions');
-        const whatsapp = document.getElementById('quoteWhatsApp');
-        whatsapp.removeAttribute('href');
-        whatsapp.removeAttribute('target');
-        whatsapp.setAttribute('aria-disabled', 'true');
-        whatsapp.textContent = 'WhatsApp setup pending';
-        let messagePanel = document.getElementById('engineMessagePreview');
-        if (!messagePanel) {
-          messagePanel = document.createElement('div');
-          messagePanel.id = 'engineMessagePreview';
-          messagePanel.className = 'engine-message-preview';
-          actions?.before(messagePanel);
-        }
-        messagePanel.replaceChildren();
-        const heading = document.createElement('strong');
-        heading.textContent = 'Prepared customer message';
-        const message = document.createElement('pre');
-        message.textContent = result.messages.customer;
-        const copy = document.createElement('button');
-        copy.type = 'button';
-        copy.className = 'quote-action';
-        copy.textContent = 'Copy customer message';
-        copy.addEventListener('click', async () => {
-          if (navigator.clipboard) await navigator.clipboard.writeText(result.messages.customer);
-          else {
-            const box = document.createElement('textarea');
-            box.value = result.messages.customer;
-            document.body.append(box);
-            box.select();
-            document.execCommand('copy');
-            box.remove();
-          }
-          copy.textContent = 'Customer message copied';
-        });
-        messagePanel.append(heading, message, copy);
+        greeting.textContent = `Your vehicle details are ready for ${result.centre.name}.${cost} You can also send the enquiry through WhatsApp.`;
       }
+      const actions = document.querySelector('#quoteResult .quote-actions');
+      const whatsapp = document.getElementById('quoteWhatsApp');
+      whatsapp.href = `https://wa.me/917727005151?text=${encodeURIComponent(whatsappMessage)}`;
+      whatsapp.target = '_blank';
+      whatsapp.rel = 'noopener';
+      whatsapp.removeAttribute('aria-disabled');
+      whatsapp.textContent = 'Send enquiry on WhatsApp';
+      let messagePanel = document.getElementById('engineMessagePreview');
+      if (!messagePanel) {
+        messagePanel = document.createElement('div');
+        messagePanel.id = 'engineMessagePreview';
+        messagePanel.className = 'engine-message-preview';
+        actions?.before(messagePanel);
+      }
+      messagePanel.replaceChildren();
+      const heading = document.createElement('strong');
+      heading.textContent = 'Prepared WhatsApp enquiry';
+      const message = document.createElement('pre');
+      message.textContent = whatsappMessage;
+      const copy = document.createElement('button');
+      copy.type = 'button';
+      copy.className = 'quote-action';
+      copy.textContent = 'Copy WhatsApp enquiry';
+      copy.addEventListener('click', async () => {
+        if (navigator.clipboard) await navigator.clipboard.writeText(whatsappMessage);
+        else {
+          const box = document.createElement('textarea');
+          box.value = whatsappMessage;
+          document.body.append(box);
+          box.select();
+          document.execCommand('copy');
+          box.remove();
+        }
+        copy.textContent = 'WhatsApp enquiry copied';
+      });
+      messagePanel.append(heading, message, copy);
       if (payload.emailQuote === 'true') {
         const delivery = result.email_delivery || [];
         const delivered = delivery.length === 2 && delivery.every(item => item.status === 'sent');
