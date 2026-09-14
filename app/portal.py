@@ -284,7 +284,7 @@ def engine_site_response():
     html = html.replace('Submitting prepares the summary on this device. Nothing is uploaded automatically.',
                         'Submitting stores this request only after consent, then prepares the summary on this device.')
     html = html.replace('Complete the form, then continue on WhatsApp for tentative servicing cost and the nearest service-centre contact details.',
-                        'Complete the form, choose your nearest centre and receive an estimated servicing cost.')
+                        'Complete the form, choose your nearest centre and send your enquiry to the service team.')
     html = html.replace('Continue on WhatsApp to receive tentative cost and nearby service-centre details.',
                         'After submitting, open WhatsApp with your enquiry already filled in and press Send.')
     faq_markup = ''.join(f'<details><summary>{question}</summary><p>{answer}</p></details>'
@@ -297,11 +297,11 @@ def engine_site_response():
         for question, answer in ENGINE_FAQS]}
     integration = (
         '<link rel="icon" href="/static/images/batterywala-logo-original.png">'
-        '<link rel="stylesheet" href="/static/engine-integration.css?v=20260914-3">'
+        '<link rel="stylesheet" href="/static/engine-integration.css?v=20260914-5">'
         '<meta name="application-name" content="Engine D-Carb">'
         f'<script type="application/ld+json">{json.dumps(faq_schema, ensure_ascii=False)}</script></head>'
     )
-    scripts = '<script src="/static/engine-integration.js?v=20260914-3"></script></body>'
+    scripts = '<script src="/static/engine-integration.js?v=20260914-5"></script></body>'
     return Response(html.replace('</head>', integration).replace('</body>', scripts), mimetype='text/html')
 
 

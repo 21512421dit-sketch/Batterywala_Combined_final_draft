@@ -4,7 +4,7 @@
 .engine-consent:focus-within{outline:3px solid rgba(255,122,20,.32);outline-offset:3px}
 .enquiry-submit[aria-busy="true"]{opacity:.72;cursor:wait}
 .quote-result:focus{outline:3px solid rgba(255,122,20,.34);outline-offset:5px}
-.engine-centre-preview{min-height:54px;padding:13px 15px;border-left:3px solid #22bdf2;border-radius:0 10px 10px 0;background:#f2fbff;color:#426071;font-size:12px;line-height:1.55}
+.engine-centre-help{display:block;margin-top:7px;color:#647f92;font-size:12px;line-height:1.45}
 .engine-message-preview{display:grid;gap:11px;margin-top:20px;padding:18px;border:1px solid rgba(34,189,242,.35);border-radius:16px;background:#fff}.engine-message-preview>strong{color:#062b49}.engine-message-preview pre{max-height:250px;margin:0;padding:14px;border-radius:10px;background:#eef6fb;color:#263b49;font:12px/1.6 inherit;white-space:pre-wrap;overflow:auto}.quote-action[aria-disabled="true"]{opacity:.58;cursor:not-allowed;pointer-events:none}
 .quote-action{white-space:nowrap}
 .engine-email-choice{margin:18px 0 4px;padding:16px;border:1px solid rgba(34,189,242,.35);border-radius:14px;background:#f2fbff}.engine-email-choice>label{display:grid;grid-template-columns:22px minmax(0,1fr);align-items:start;gap:12px;cursor:pointer}.engine-email-choice input{width:20px;height:20px;margin:1px 0 0;accent-color:#ff7a14}.engine-email-choice span{display:grid;gap:4px}.engine-email-choice strong{color:#062b49;font-size:14px}.engine-email-choice small{color:#426071;font-size:12px;line-height:1.5}.engine-email-choice:focus-within{outline:3px solid rgba(255,122,20,.32);outline-offset:3px}
@@ -47,6 +47,14 @@
 .engine-enquiry-dialog .enquiry-types{margin-bottom:24px}
 .engine-enquiry-dialog .field textarea{min-height:90px}
 .engine-location-field[hidden]{display:none!important}
+.engine-service-email[hidden]{display:none!important}
+
+/* Keep the process callouts inside the console, with enough contrast to read over motion. */
+.engine-console .engine-badge{z-index:8;max-width:calc(50% - 22px);padding:10px 13px;border-color:rgba(138,231,255,.72);background:rgba(3,28,48,.97);box-shadow:0 8px 20px rgba(0,0,0,.32);color:#fff;font-size:.66rem;line-height:1.2;letter-spacing:.08em;text-shadow:0 1px 2px rgba(0,0,0,.7);white-space:normal}
+.engine-console .engine-badge.one{left:18px;bottom:62px}
+.engine-console .engine-badge.two{right:18px;top:104px}
+.engine-console .engine-badge.three{right:18px;bottom:38px}
+@media(max-width:600px){.engine-console .engine-badge{max-width:46%;padding:8px 10px;font-size:.54rem}.engine-console .engine-badge.one{left:12px;bottom:72px}.engine-console .engine-badge.two{right:12px;top:94px}.engine-console .engine-badge.three{right:12px;bottom:42px}}
 @media(hover:hover) and (pointer:fine){
   .engine-enquiry-launch:hover{transform:translateY(-3px);border-color:#22bdf2;box-shadow:0 20px 44px rgba(5,38,64,.12)}
   .engine-dialog-close:hover{border-color:#ff7a14;color:#ff7a14}

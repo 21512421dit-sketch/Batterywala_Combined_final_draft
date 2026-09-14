@@ -30,7 +30,7 @@
   if (enquiryLayout) {
     enquiryLayout.innerHTML = `<div class="engine-enquiry-choices">
       <button type="button" class="engine-enquiry-launch" data-enquiry-type="service">
-        <span class="engine-choice-number">01</span><span><strong>Vehicle Servicing</strong><small>Get an indicative cost and choose a nearby service centre.</small></span><i aria-hidden="true">&rarr;</i>
+        <span class="engine-choice-number">01</span><span><strong>Vehicle Servicing</strong><small>Share your vehicle details and choose a nearby service centre.</small></span><i aria-hidden="true">&rarr;</i>
       </button>
       <button type="button" class="engine-enquiry-launch" data-enquiry-type="machine">
         <span class="engine-choice-number">02</span><span><strong>New Machine Enquiry</strong><small>Tell us about your workshop and find the right configuration.</small></span><i aria-hidden="true">&rarr;</i>
@@ -92,14 +92,15 @@
   const submit = form.querySelector('.enquiry-submit, button[type="submit"]');
   const emailQuote = form.elements.emailQuote;
   const serviceEmail = form.elements.serviceEmail;
+  const emailChoice = emailQuote?.closest('.engine-email-choice');
+  const serviceEmailField = serviceEmail?.closest('.field');
   const emailChoiceTitle = emailQuote?.closest('label')?.querySelector('strong');
   const emailChoiceHelp = emailQuote?.closest('label')?.querySelector('small');
-  if (emailQuote) {
-    emailQuote.defaultChecked = true;
-    emailQuote.checked = true;
-  }
-  if (emailChoiceTitle) emailChoiceTitle.textContent = 'Email my quotation automatically';
-  if (emailChoiceHelp) emailChoiceHelp.textContent = 'Checked by default. We’ll email you and notify Engine D-Carb when you submit.';
+  if (emailChoiceTitle) emailChoiceTitle.textContent = 'Email my machine enquiry';
+  if (emailChoiceHelp) emailChoiceHelp.textContent = 'Choose this to email your enquiry and notify Engine D-Carb.';
+  serviceEmailField?.classList.add('engine-service-email');
+  // Pricing is sent in the prepared WhatsApp message, not exposed in the form.
+  document.querySelector('#serviceFields .price-preview')?.remove();
   const serviceGrid = document.querySelector('#serviceFields .form-grid');
   const serviceDetails = document.getElementById('serviceDetails')?.closest('.field');
   const locationInputs = [form.elements.area, form.elements.serviceCity, form.elements.servicePin].filter(Boolean);
@@ -114,10 +115,9 @@
     <select id="selectedCentre" name="selectedCentre" required disabled>
       <option value="">Loading service centres…</option>
     </select>
-    <div class="engine-centre-preview" id="engineCentrePreview" aria-live="polite">Choose the centre most convenient for your visit.</div>`;
+    <small class="engine-centre-help">Select the centre most convenient for your visit.</small>`;
   serviceGrid?.insertBefore(centreField, serviceDetails || null);
   const centreSelect = centreField.querySelector('select');
-  const centrePreview = centreField.querySelector('.engine-centre-preview');
   let centres = [];
 
   const syncCentreState = () => {
@@ -125,7 +125,16 @@
     centreSelect.disabled = !isService || !centres.length;
     centreSelect.required = isService;
     submit.disabled = isService && !centres.length;
-    if (serviceEmail) serviceEmail.required = isService && emailQuote?.checked;
+    if (serviceEmailField) serviceEmailField.hidden = true;
+    if (serviceEmail) {
+      serviceEmail.disabled = true;
+      serviceEmail.required = false;
+    }
+    if (emailChoice) emailChoice.hidden = isService;
+    if (emailQuote) {
+      emailQuote.disabled = isService;
+      if (isService) emailQuote.checked = false;
+    }
     const needsLocation = isService && centreSelect.value === 'other';
     locationFields.forEach(field => { field.hidden = !needsLocation; });
     locationInputs.forEach(input => {
@@ -136,10 +145,6 @@
   form.querySelectorAll('input[name="enquiryType"]').forEach(input => input.addEventListener('change', syncCentreState));
   emailQuote?.addEventListener('change', syncCentreState);
   centreSelect.addEventListener('change', () => {
-    const centre = centres.find(item => item.key === centreSelect.value);
-    centrePreview.textContent = centreSelect.value === 'other'
-      ? 'Enter your area, city and PIN code so the team can confirm the nearest available centre.'
-      : centre ? centre.address : 'Choose the centre most convenient for your visit.';
     syncCentreState();
   });
   syncCentreState();
@@ -154,7 +159,6 @@
     })
     .catch(failure => {
       centreSelect.replaceChildren(new Option('Service centres unavailable', ''));
-      centrePreview.textContent = `${failure.message} Please refresh the page or contact Engine D-Carb.`;
       syncCentreState();
     });
   const consent = document.createElement('label');
@@ -170,7 +174,6 @@
         '',
         `Name: ${payload.customerName}`,
         `Phone: ${payload.servicePhone}`,
-        payload.serviceEmail ? `Email: ${payload.serviceEmail}` : '',
         `Vehicle: ${payload.vehicleType} — ${payload.vehicleBrand} ${payload.vehicleModel}`,
         `Registration year: ${payload.passingYear}`,
         `Fuel: ${payload.fuelType}`,
@@ -240,10 +243,7 @@
         greeting.textContent = 'Your enquiry is saved. You can also send the same details through WhatsApp using the button below.';
       } else {
         title.textContent = `Thank you, ${payload.customerName}. Your vehicle service enquiry has been received.`;
-        const cost = result.indicative_cost
-          ? ` The current tentative estimate is ${new Intl.NumberFormat('en-IN', {style: 'currency', currency: 'INR', maximumFractionDigits: 0}).format(result.indicative_cost)}; the service team will confirm the final price.`
-          : '';
-        greeting.textContent = `Your vehicle details are ready for ${result.centre.name}.${cost} You can also send the enquiry through WhatsApp.`;
+        greeting.textContent = `Your vehicle details are ready for ${result.centre.name}. You can send the enquiry through WhatsApp for the service team to review.`;
       }
       const actions = document.querySelector('#quoteResult .quote-actions');
       const whatsapp = document.getElementById('quoteWhatsApp');
@@ -252,35 +252,7 @@
       whatsapp.rel = 'noopener';
       whatsapp.removeAttribute('aria-disabled');
       whatsapp.textContent = 'Send enquiry on WhatsApp';
-      let messagePanel = document.getElementById('engineMessagePreview');
-      if (!messagePanel) {
-        messagePanel = document.createElement('div');
-        messagePanel.id = 'engineMessagePreview';
-        messagePanel.className = 'engine-message-preview';
-        actions?.before(messagePanel);
-      }
-      messagePanel.replaceChildren();
-      const heading = document.createElement('strong');
-      heading.textContent = 'Prepared WhatsApp enquiry';
-      const message = document.createElement('pre');
-      message.textContent = whatsappMessage;
-      const copy = document.createElement('button');
-      copy.type = 'button';
-      copy.className = 'quote-action';
-      copy.textContent = 'Copy WhatsApp enquiry';
-      copy.addEventListener('click', async () => {
-        if (navigator.clipboard) await navigator.clipboard.writeText(whatsappMessage);
-        else {
-          const box = document.createElement('textarea');
-          box.value = whatsappMessage;
-          document.body.append(box);
-          box.select();
-          document.execCommand('copy');
-          box.remove();
-        }
-        copy.textContent = 'WhatsApp enquiry copied';
-      });
-      messagePanel.append(heading, message, copy);
+      document.getElementById('engineMessagePreview')?.remove();
       if (payload.emailQuote === 'true') {
         const delivery = result.email_delivery || [];
         const delivered = delivery.length === 2 && delivery.every(item => item.status === 'sent');
