@@ -37,8 +37,15 @@
       </button>
     </div>`;
   }
+  const completionStatus = document.createElement('p');
+  completionStatus.className = 'engine-enquiry-completion';
+  completionStatus.setAttribute('role', 'status');
+  completionStatus.setAttribute('aria-live', 'polite');
+  completionStatus.hidden = true;
+  enquiryLayout?.append(completionStatus);
 
   const openEnquiry = type => {
+    completionStatus.hidden = true;
     const radio = form.querySelector(`input[name="enquiryType"][value="${type}"]`);
     if (radio) {
       radio.checked = true;
@@ -90,6 +97,12 @@
   });
 
   const submit = form.querySelector('.enquiry-submit, button[type="submit"]');
+  const whatsappConsent = document.createElement('label');
+  whatsappConsent.className = 'engine-consent engine-whatsapp-consent';
+  whatsappConsent.innerHTML = `<input type="checkbox" name="whatsappConsent" value="true" required>
+    <span>I agree to receive transactional quotation and appointment updates from Engine D-Carb on WhatsApp.</span>`;
+  submit.before(whatsappConsent);
+  const whatsappConsentInput = whatsappConsent.querySelector('input');
   const emailQuote = form.elements.emailQuote;
   const serviceEmail = form.elements.serviceEmail;
   const emailChoice = emailQuote?.closest('.engine-email-choice');
@@ -135,6 +148,9 @@
       emailQuote.disabled = isService;
       if (isService) emailQuote.checked = false;
     }
+    whatsappConsent.hidden = !isService;
+    whatsappConsentInput.disabled = !isService;
+    whatsappConsentInput.required = isService;
     const needsLocation = isService && centreSelect.value === 'other';
     locationFields.forEach(field => { field.hidden = !needsLocation; });
     locationInputs.forEach(input => {
@@ -167,50 +183,7 @@
     <span>I consent to Engine D-Carb and Care4Earth Enterprises storing the details I submit for 24 months to prepare and manage my quotation and analyze service demand. My information will not be sold or used for promotional marketing. I can request correction or deletion using the contact details on this website.</span>`;
   submit.before(consent);
 
-  const buildWhatsAppEnquiry = (payload, result) => {
-    const lines = ['Hello Engine D-Carb team, I submitted an enquiry through your website.'];
-    if (payload.enquiryType === 'service') {
-      lines.push(
-        '',
-        `Name: ${payload.customerName}`,
-        `Phone: ${payload.servicePhone}`,
-        `Vehicle: ${payload.vehicleType} — ${payload.vehicleBrand} ${payload.vehicleModel}`,
-        `Registration year: ${payload.passingYear}`,
-        `Fuel: ${payload.fuelType}`,
-        `Engine capacity: ${payload.engineCc} CC`,
-        `Kilometres driven: ${new Intl.NumberFormat('en-IN').format(Number(payload.kilometres))} km`,
-        `Preferred centre: ${result.centre.name}`,
-        `Centre/location: ${result.centre.address}`,
-        result.indicative_cost
-          ? `Indicative estimate: ${new Intl.NumberFormat('en-IN', {style: 'currency', currency: 'INR', maximumFractionDigits: 0}).format(result.indicative_cost)}`
-          : '',
-        payload.serviceDetails ? `Additional details: ${payload.serviceDetails}` : '',
-        '',
-        'Please contact me to confirm the final quotation and appointment.'
-      );
-    } else {
-      lines.push(
-        '',
-        'Enquiry type: New Engine D-Carb machine',
-        `Representative: ${payload.representativeName}`,
-        `Phone: ${payload.machinePhone}`,
-        `Email: ${payload.machineEmail}`,
-        `Company/address: ${payload.companyAddress}`,
-        `Business and experience: ${payload.businessDetails}`,
-        `Location: ${payload.machineCity} — ${payload.machinePin}`,
-        payload.machineDetails ? `Additional details: ${payload.machineDetails}` : '',
-        '',
-        'Please contact me with a suitable machine configuration and quotation.'
-      );
-    }
-    return lines.filter(Boolean).join('\n');
-  };
-
   form.addEventListener('submit', async event => {
-    if (form.dataset.backendSaved === 'true') {
-      delete form.dataset.backendSaved;
-      return;
-    }
     event.preventDefault();
     event.stopImmediatePropagation();
     const error = document.getElementById('enquiryError');
@@ -232,38 +205,24 @@
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Unable to save the enquiry.');
-      form.dataset.backendSaved = 'true';
-      form.requestSubmit();
       const enquiryType = payload.enquiryType;
-      const whatsappMessage = buildWhatsAppEnquiry(payload, result);
-      const title = document.getElementById('quoteTitle');
-      const greeting = document.getElementById('quoteGreeting');
       if (enquiryType === 'machine') {
-        title.textContent = `Thank you, ${payload.representativeName}. Your machine enquiry has been received.`;
-        greeting.textContent = 'Your enquiry is saved. You can also send the same details through WhatsApp using the button below.';
+        completionStatus.textContent = `Thank you, ${payload.representativeName}. Your machine enquiry has been received.`;
+        completionStatus.classList.remove('warning');
       } else {
-        title.textContent = `Thank you, ${payload.customerName}. Your vehicle service enquiry has been received.`;
-        greeting.textContent = `Your vehicle details are ready for ${result.centre.name}. You can send the enquiry through WhatsApp for the service team to review.`;
+        const deliveries = result.whatsapp_delivery || [];
+        const customerSent = deliveries.some(item => item.recipient === 'customer' && item.status === 'sent');
+        const centreSent = deliveries.some(item => item.recipient.startsWith('centre:') && item.status === 'sent');
+        completionStatus.textContent = customerSent && centreSent
+          ? `Thank you, ${payload.customerName}. Your quotation was sent on WhatsApp and ${result.centre.name} was notified.`
+          : `Thank you, ${payload.customerName}. Your enquiry was saved, but WhatsApp delivery was not completed. Please ask Engine D-Carb to check the approved templates and phone-number status.`;
+        completionStatus.classList.toggle('warning', !(customerSent && centreSent));
       }
-      const actions = document.querySelector('#quoteResult .quote-actions');
-      const whatsapp = document.getElementById('quoteWhatsApp');
-      whatsapp.href = `https://wa.me/917727005151?text=${encodeURIComponent(whatsappMessage)}`;
-      whatsapp.target = '_blank';
-      whatsapp.rel = 'noopener';
-      whatsapp.removeAttribute('aria-disabled');
-      whatsapp.textContent = 'Send enquiry on WhatsApp';
-      document.getElementById('engineMessagePreview')?.remove();
-      if (payload.emailQuote === 'true') {
-        const delivery = result.email_delivery || [];
-        const delivered = delivery.length === 2 && delivery.every(item => item.status === 'sent');
-        greeting.textContent += delivered
-          ? ' The quotation was emailed to you and a copy was sent to Engine D-Carb.'
-          : ' Your enquiry was saved, but email delivery could not be completed. Please contact Engine D-Carb if you do not receive it.';
-        const manualEmail = document.getElementById('quoteEmail');
-        if (manualEmail) manualEmail.hidden = true;
-      }
-      form.hidden = true;
-      document.getElementById('quoteResult')?.focus({preventScroll: true});
+      error.classList.remove('visible');
+      completionStatus.hidden = false;
+      form.reset();
+      dialog.close();
+      enquirySection?.scrollIntoView({behavior: 'smooth', block: 'start'});
     } catch (failure) {
       error.textContent = failure.message;
       error.classList.add('visible');

@@ -29,7 +29,7 @@ def engine_service(**changes):
             'vehicleType': 'Car', 'vehicleBrand': 'Tata', 'vehicleModel': 'Nexon', 'passingYear': '2022',
             'fuelType': 'Diesel', 'engineCc': '1497', 'kilometres': '45000', 'area': 'Baner',
             'serviceCity': 'Pune', 'servicePin': '411045', 'selectedCentre': 'chikalthana-midc',
-            'consent': True}
+            'consent': True, 'whatsappConsent': True}
     return data | changes
 
 
@@ -39,7 +39,7 @@ def test_consent_engine_pricing_and_retention(tmp_path):
     public_page = client.get('/engine-d-carb')
     assert b'Nothing is uploaded automatically' not in public_page.data
     assert b'engine-integration.js' in public_page.data
-    assert b'engine-integration.js?v=20260914-5' in public_page.data
+    assert b'engine-integration.js?v=20260914-7' in public_page.data
     assert public_page.data.count(b'<details><summary>') == 7
     assert b'"@type": "FAQPage"' in public_page.data
     assert client.post('/api/engine-d-carb/quotations', json=engine_service(consent=False)).status_code == 400
@@ -152,13 +152,48 @@ def test_engine_click_to_chat_uses_business_number_and_no_api_placeholder(tmp_pa
     client = app.test_client()
     script = client.get('/static/engine-integration.js')
     assert script.status_code == 200
-    assert b'https://wa.me/917727005151?text=' in script.data
-    assert b'Send enquiry on WhatsApp' in script.data
+    assert b'form.requestSubmit()' not in script.data
+    assert b'completionStatus.hidden = false' in script.data
+    assert b'dialog.close()' in script.data
     assert b'WhatsApp setup pending' not in script.data
     assert b'emailChoice.hidden = isService' in script.data
     assert b'serviceEmailField.hidden = true' in script.data
     assert b"serviceEmailField?.classList.add('engine-service-email')" in script.data
     assert b"document.querySelector('#serviceFields .price-preview')?.remove()" in script.data
+    assert b'name="whatsappConsent"' in script.data
+
+
+def test_engine_whatsapp_sends_customer_and_selected_centre_templates(tmp_path, monkeypatch):
+    requests = []
+
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def read(self): return b'{"messages":[{"id":"wamid.test"}]}'
+
+    def post(request, timeout=0):
+        requests.append(json.loads(request.data.decode('utf-8')))
+        assert request.headers['Authorization'] == 'Bearer private-test-token'
+        return Response()
+
+    monkeypatch.setenv('WHATSAPP_PHONE_NUMBER_ID', '123456789')
+    monkeypatch.setenv('WHATSAPP_ACCESS_TOKEN', 'private-test-token')
+    monkeypatch.setenv('WHATSAPP_CUSTOMER_TEMPLATE', 'engine_dcarb_service_quote')
+    monkeypatch.setenv('WHATSAPP_CENTRE_TEMPLATE', 'engine_dcarb_new_service_lead')
+    monkeypatch.setattr('app.portal.urllib.request.urlopen', post)
+    app = make_app(tmp_path)
+    app.config['WHATSAPP_ALLOW_TEST_DELIVERY'] = True
+    client = app.test_client()
+
+    response = client.post('/api/engine-d-carb/quotations', json=engine_service())
+    assert response.status_code == 200
+    assert [item['status'] for item in response.json['whatsapp_delivery']] == ['sent', 'sent']
+    assert [item['to'] for item in requests] == ['919876543210', '917727005151']
+    assert [item['template']['name'] for item in requests] == [
+        'engine_dcarb_service_quote', 'engine_dcarb_new_service_lead'
+    ]
+    with app.app_context():
+        assert Delivery.query.filter_by(channel='whatsapp', status='sent').count() == 2
 
 
 def test_employee_empty_dropdowns_allow_manual_entry(tmp_path):

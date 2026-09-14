@@ -26,6 +26,8 @@
 .engine-enquiry-launch small{display:block;color:#647f92;font-size:.82rem;line-height:1.55}
 .engine-enquiry-launch i{font-size:1.45rem;color:#ff7a14;font-style:normal}
 .engine-choice-number{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;background:#062b49;color:#22bdf2;font-size:.75rem;font-weight:900;letter-spacing:.08em}
+.engine-enquiry-completion{max-width:920px;margin:18px 0 0;padding:16px 18px;border:1px solid #83d7b0;border-radius:14px;background:#eefaf4;color:#176a43;font-size:.9rem;font-weight:750;line-height:1.55}
+.engine-enquiry-completion.warning{border-color:#efbf8a;background:#fff7ed;color:#8b4a0b}
 
 /* Fixed quick routes sit beneath the desktop quote action without obscuring the machine. */
 .engine-floating-actions{position:fixed;z-index:60;top:132px;right:max(24px,calc((100vw - 1260px)/2));display:grid;gap:12px}

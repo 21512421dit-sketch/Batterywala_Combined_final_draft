@@ -4,6 +4,8 @@ import json
 import os
 import re
 import smtplib
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone
 from email.message import EmailMessage
 from email.utils import formataddr
@@ -57,7 +59,7 @@ FIELD_LABELS = {
     'selectedCentre': 'Preferred service centre', 'message': 'Message', 'note': 'Note',
     'number': 'Quotation number', 'status': 'Status',
 }
-HIDDEN_DISPLAY_FIELDS = {'consent', 'emailQuote', 'token'}
+HIDDEN_DISPLAY_FIELDS = {'consent', 'whatsappConsent', 'emailQuote', 'token'}
 
 
 def field_label(key):
@@ -155,7 +157,83 @@ def service_messages(form, result, centre):
         f"An estimated cost of ₹{result['indicative_cost']:,} is given to the customer for availing Engine D-Carb service.\n\n"
         "Kindly contact the customer and book the appointment."
     )
-    return {'customer': customer, 'centre': owner, 'centre_numbers': numbers, 'sender_number': '7727005151'}
+    sender_number = normalize_whatsapp_number(os.getenv('ENGINE_DCARB_WHATSAPP_NUMBER') or '919607576029')
+    return {'customer': customer, 'centre': owner, 'centre_numbers': numbers, 'sender_number': sender_number}
+
+
+def normalize_whatsapp_number(value):
+    """Return a WhatsApp recipient in international digit format."""
+    digits = re.sub(r'\D', '', str(value or ''))
+    if len(digits) == 10:
+        digits = '91' + digits
+    return digits
+
+
+def send_whatsapp_template(target, template_name, parameters, recipient):
+    """Send one approved WhatsApp template without exposing credentials to the browser."""
+    phone_number_id = (os.getenv('WHATSAPP_PHONE_NUMBER_ID') or '').strip()
+    access_token = (os.getenv('WHATSAPP_ACCESS_TOKEN') or '').strip()
+    language = (os.getenv('WHATSAPP_TEMPLATE_LANGUAGE') or 'en_IN').strip()
+    version = (os.getenv('WHATSAPP_API_VERSION') or 'v23.0').strip()
+    normalized_target = normalize_whatsapp_number(target)
+    if not phone_number_id or not access_token or not template_name:
+        return {'recipient': recipient, 'target': normalized_target, 'status': 'not_configured',
+                'detail': 'WhatsApp API configuration is incomplete.'}
+    if current_app.config.get('TESTING') and not current_app.config.get('WHATSAPP_ALLOW_TEST_DELIVERY'):
+        return {'recipient': recipient, 'target': normalized_target, 'status': 'test_skipped',
+                'detail': 'External WhatsApp delivery is disabled during tests.'}
+    if not re.fullmatch(r'v\d+\.\d+', version):
+        version = 'v23.0'
+    payload = {
+        'messaging_product': 'whatsapp', 'to': normalized_target, 'type': 'template',
+        'template': {
+            'name': template_name, 'language': {'code': language},
+            'components': [{'type': 'body', 'parameters': [
+                {'type': 'text', 'text': str(value)} for value in parameters
+            ]}],
+        },
+    }
+    graph_request = urllib.request.Request(
+        f'https://graph.facebook.com/{version}/{phone_number_id}/messages',
+        data=json.dumps(payload, ensure_ascii=False).encode('utf-8'),
+        headers={'Authorization': f'Bearer {access_token}', 'Content-Type': 'application/json'},
+        method='POST',
+    )
+    try:
+        with urllib.request.urlopen(graph_request, timeout=20) as response:
+            response_data = json.loads(response.read().decode('utf-8'))
+        message_id = ((response_data.get('messages') or [{}])[0].get('id') or '')
+        return {'recipient': recipient, 'target': normalized_target, 'status': 'sent',
+                'detail': message_id or 'Meta accepted the message.'}
+    except urllib.error.HTTPError as error:
+        try:
+            error_data = json.loads(error.read().decode('utf-8'))
+            detail = (error_data.get('error') or {}).get('message') or f'Meta returned HTTP {error.code}.'
+        except (ValueError, UnicodeDecodeError):
+            detail = f'Meta returned HTTP {error.code}.'
+        current_app.logger.warning('WhatsApp template delivery failed for %s: %s', recipient, detail)
+        return {'recipient': recipient, 'target': normalized_target, 'status': 'failed', 'detail': detail[:500]}
+    except (OSError, ValueError) as error:
+        current_app.logger.warning('WhatsApp template delivery failed for %s: %s', recipient, error)
+        return {'recipient': recipient, 'target': normalized_target, 'status': 'failed',
+                'detail': 'Unable to reach the WhatsApp service.'}
+
+
+def send_engine_whatsapp(form, result, centre):
+    customer_template = (os.getenv('WHATSAPP_CUSTOMER_TEMPLATE') or 'engine_dcarb_service_quote').strip()
+    centre_template = (os.getenv('WHATSAPP_CENTRE_TEMPLATE') or 'engine_dcarb_new_service_lead').strip()
+    vehicle = (f"{form['vehicleType']} — {form['vehicleBrand']} {form['vehicleModel']} "
+               f"({form['passingYear']}), {form['fuelType']}, {form['engineCc']} CC")
+    deliveries = [send_whatsapp_template(
+        form['servicePhone'], customer_template,
+        [form['customerName'], vehicle, result['indicative_cost'], result['centre']['name']], 'customer')]
+    if centre:
+        for contact in centre.contacts:
+            deliveries.append(send_whatsapp_template(
+                contact.phone, centre_template,
+                [form['customerName'], form['servicePhone'], vehicle, result['indicative_cost'],
+                 result['centre']['name']], f'centre:{contact.contact_name}'))
+    return deliveries
 
 
 def send_engine_emails(form, result, customer_email):
@@ -301,7 +379,7 @@ def engine_site_response():
         '<meta name="application-name" content="Engine D-Carb">'
         f'<script type="application/ld+json">{json.dumps(faq_schema, ensure_ascii=False)}</script></head>'
     )
-    scripts = '<script src="/static/engine-integration.js?v=20260914-5"></script></body>'
+    scripts = '<script src="/static/engine-integration.js?v=20260914-7"></script></body>'
     return Response(html.replace('</head>', integration).replace('</body>', scripts), mimetype='text/html')
 
 
@@ -352,6 +430,9 @@ def engine_quotation():
     if selected_machine and selected_machine not in MACHINES:
         return jsonify(error='Choose a valid Engine D-Carb machine.'), 400
     if kind == 'service':
+        whatsapp_consented = form.get('whatsappConsent') is True or form.get('whatsappConsent') == 'true'
+        if not whatsapp_consented:
+            return jsonify(error='WhatsApp consent is required before we can send quotation and appointment updates.'), 400
         required = ('customerName', 'servicePhone', 'vehicleType', 'vehicleBrand', 'vehicleModel', 'passingYear',
                     'fuelType', 'engineCc', 'kilometres', 'selectedCentre')
         if any(not form.get(key) for key in required):
@@ -403,8 +484,15 @@ def engine_quotation():
         return jsonify(error='Enter a valid email address.'), 400
     if email_requested and not email:
         return jsonify(error='Enter a valid email address to receive the quotation.'), 400
+    if kind == 'service':
+        result['whatsapp_delivery'] = send_engine_whatsapp(form, result, centre)
+        result['business_whatsapp_number'] = normalize_whatsapp_number(
+            os.getenv('ENGINE_DCARB_WHATSAPP_NUMBER') or '919607576029')
     normalized = dict(form, name=name, phone=phone, email=email)
     record_submission('engine_dcarb', kind, normalized, result, consented=True)
+    for item in result.get('whatsapp_delivery', []):
+        db.session.add(Delivery(channel='whatsapp', target=item['target'], status=item['status'],
+                                detail=f"{item['recipient']}: {item['detail']}"))
     db.session.commit()
     if email_requested:
         result['email_delivery'] = send_engine_emails(form, result, email)
