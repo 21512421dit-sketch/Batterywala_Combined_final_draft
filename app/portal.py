@@ -137,14 +137,16 @@ def centre_dict(centre, include_contacts=False):
 
 def service_messages(form, result, centre):
     vehicle = f"{form['vehicleType']} — {form['vehicleBrand']} {form['vehicleModel']}, {form['passingYear']}, {form['fuelType']}, {form['engineCc']} CC, {int(form['kilometres']):,} km"
-    numbers = [item.phone for item in centre.contacts]
-    centre_details = f"{centre.name}\n{centre.address}"
+    numbers = [item.phone for item in centre.contacts] if centre else []
+    centre_details = f"{result['centre']['name']}\n{result['centre']['address']}"
     if numbers:
         centre_details += f"\nContact: {', '.join(numbers)}"
+    location_label = ('Your requested service area is' if result['centre']['key'] == 'other'
+                      else 'Your selected nearest centre details are as follows')
     customer = (
         f"Thank you {form['customerName']} for the enquiry of Engine D-Carb Service.\n\n"
         f"Vehicle details:\n{vehicle}\n\n"
-        f"Your selected nearest centre details are as follows:\n{centre_details}"
+        f"{location_label}:\n{centre_details}"
     )
     owner = (
         f"{form['customerName']} is interested to avail the Engine D-Carb Service. "
@@ -295,11 +297,11 @@ def engine_site_response():
         for question, answer in ENGINE_FAQS]}
     integration = (
         '<link rel="icon" href="/static/images/batterywala-logo-original.png">'
-        '<link rel="stylesheet" href="/static/engine-integration.css?v=20260911-1">'
+        '<link rel="stylesheet" href="/static/engine-integration.css?v=20260914-2">'
         '<meta name="application-name" content="Engine D-Carb">'
         f'<script type="application/ld+json">{json.dumps(faq_schema, ensure_ascii=False)}</script></head>'
     )
-    scripts = '<script src="/static/engine-integration.js?v=20260911-1"></script></body>'
+    scripts = '<script src="/static/engine-integration.js?v=20260914-2"></script></body>'
     return Response(html.replace('</head>', integration).replace('</body>', scripts), mimetype='text/html')
 
 
@@ -351,11 +353,11 @@ def engine_quotation():
         return jsonify(error='Choose a valid Engine D-Carb machine.'), 400
     if kind == 'service':
         required = ('customerName', 'servicePhone', 'vehicleType', 'vehicleBrand', 'vehicleModel', 'passingYear',
-                    'fuelType', 'engineCc', 'kilometres', 'area', 'serviceCity', 'servicePin', 'selectedCentre')
+                    'fuelType', 'engineCc', 'kilometres', 'selectedCentre')
         if any(not form.get(key) for key in required):
             return jsonify(error='Complete all required vehicle service fields.'), 400
-        if not re.fullmatch(r'[0-9]{10}', form['servicePhone']) or not re.fullmatch(r'[0-9]{6}', form['servicePin']):
-            return jsonify(error='Enter a valid 10-digit phone number and 6-digit PIN code.'), 400
+        if not re.fullmatch(r'[0-9]{10}', form['servicePhone']):
+            return jsonify(error='Enter a valid 10-digit phone number.'), 400
         try:
             cc, year, kilometres = int(form['engineCc']), int(form['passingYear']), int(form['kilometres'])
         except ValueError:
@@ -365,11 +367,25 @@ def engine_quotation():
         factor = 1.1 if form['vehicleType'] == 'Car' else 1.5
         if form['vehicleType'] == 'Car' and form['fuelType'] == 'Diesel':
             factor = 1.25
-        centre = EngineCentre.query.filter_by(key=form['selectedCentre']).first()
-        if not centre:
-            return jsonify(error='Choose a valid Engine D-Carb service centre.'), 400
+        centre = None
+        if form['selectedCentre'] == 'other':
+            location_required = ('area', 'serviceCity', 'servicePin')
+            if any(not form.get(key) for key in location_required):
+                return jsonify(error='Enter your area, city and PIN code so we can find the nearest centre.'), 400
+            if not re.fullmatch(r'[0-9]{6}', form['servicePin']):
+                return jsonify(error='Enter a valid 6-digit PIN code.'), 400
+            centre_data = {
+                'key': 'other',
+                'name': 'Nearest centre to be confirmed',
+                'address': f"{form['area']}, {form['serviceCity']} — {form['servicePin']}",
+            }
+        else:
+            centre = EngineCentre.query.filter_by(key=form['selectedCentre']).first()
+            if not centre:
+                return jsonify(error='Choose a valid Engine D-Carb service centre.'), 400
+            centre_data = centre_dict(centre)
         result = {'status': 'ready', 'indicative_cost': round(cc * factor * 1.1),
-                  'machine': selected_machine or None, 'centre': centre_dict(centre)}
+                  'machine': selected_machine or None, 'centre': centre_data}
         result['messages'] = service_messages(form, result, centre)
         name, phone, email = form['customerName'], form['servicePhone'], form.get('serviceEmail', '')
     else:

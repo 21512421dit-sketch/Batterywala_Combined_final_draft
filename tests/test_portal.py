@@ -118,6 +118,34 @@ def test_engine_centres_are_public_and_admin_manages_multiple_numbers(tmp_path):
     assert 'Siddhivinayak Wheel Alignment Center' in quote.json['messages']['customer']
 
 
+def test_service_location_is_only_required_for_other_centre(tmp_path):
+    app = make_app(tmp_path)
+    client = app.test_client()
+
+    known = client.post('/api/engine-d-carb/quotations', json=engine_service(
+        area='', serviceCity='', servicePin=''
+    ))
+    assert known.status_code == 200
+    assert known.json['centre']['name'] == 'Chikalthana MIDC'
+
+    missing = client.post('/api/engine-d-carb/quotations', json=engine_service(
+        selectedCentre='other', area='', serviceCity='', servicePin=''
+    ))
+    assert missing.status_code == 400
+
+    other = client.post('/api/engine-d-carb/quotations', json=engine_service(
+        selectedCentre='other', area='Baner', serviceCity='Pune', servicePin='411045'
+    ))
+    assert other.status_code == 200
+    assert other.json['centre'] == {
+        'key': 'other',
+        'name': 'Nearest centre to be confirmed',
+        'address': 'Baner, Pune — 411045',
+    }
+    assert other.json['messages']['centre_numbers'] == []
+    assert 'Your requested service area is' in other.json['messages']['customer']
+
+
 def test_employee_empty_dropdowns_allow_manual_entry(tmp_path):
     app = make_app(tmp_path)
     client = app.test_client()

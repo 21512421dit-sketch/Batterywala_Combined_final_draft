@@ -3,3 +3,5 @@
 2026-09-07 | kept | Motion is limited to short panel and control feedback because this is an operational interface.
 2026-09-09 | pending-review | Engine D-Carb centre selection uses an address preview in the customer form and compact per-centre contact cards in admin, preserving the established technical navy/orange interface.
 2026-09-11 | pending-review | Engine D-Carb enquiry form adds a compact blue email-delivery choice and conditional customer email field, preserving the established technical navy/orange interface while making the two-recipient behavior explicit.
+2026-09-14 | pending-review | Engine D-Carb replaces the long inline enquiry form with two compact launch choices and an accessible modal; custom location fields appear only for “Others,” while repeated chemical/process sections and secondary visuals are removed to shorten the page.
+2026-09-14 | pending-review | Engine D-Carb adds a fixed two-icon quick-enquiry rail below the desktop Get a quote action: orange servicing and navy machine routes open their matching forms without adding persistent text clutter.
