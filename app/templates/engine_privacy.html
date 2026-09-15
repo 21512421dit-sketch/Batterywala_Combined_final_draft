@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ 'Data deletion instructions' if deletion else 'Privacy policy' }} | Engine D-Carb</title>
+  <style>
+    body { margin: 0; padding: 32px 20px; font: 17px/1.65 system-ui, sans-serif; color: #183344; background: #fff; }
+    main { max-width: 760px; margin: auto; }
+    h1 { font-size: 32px; line-height: 1.2; } h2 { font-size: 22px; margin-top: 32px; }
+    a { color: #075780; } nav { margin-bottom: 32px; } :focus-visible { outline: 3px solid #075780; outline-offset: 4px; }
+  </style>
+</head>
+<body><main>
+  <nav aria-label="Policy navigation"><a href="/engine-d-carb">Engine D-Carb</a> · <a href="/privacy">Privacy policy</a> · <a href="/data-deletion">Data deletion</a></nav>
+  {% if deletion %}
+  <h1>Data deletion instructions</h1>
+  <p>You can request deletion of your Engine D-Carb enquiry information by emailing <a href="mailto:{{ contact_email }}?subject=Engine%20D-Carb%20data%20deletion%20request">{{ contact_email }}</a> with the subject “Engine D-Carb data deletion request”.</p>
+  <ol>
+    <li>Include the name and phone number or email address used for your enquiry. If available, include the enquiry date or reference.</li>
+    <li>Tell us whether you want a specific enquiry or all information associated with your contact details deleted, and whether you want WhatsApp updates stopped.</li>
+    <li>We may ask you to confirm ownership of the contact details before deleting information. Do not send passwords, identity documents, or payment details with your request.</li>
+  </ol>
+  <p>We will review your request and reply about its completion or any information that must be retained and why. Requests cover enquiry records and associated contact and delivery records held by Engine D-Carb.</p>
+  <p>Messages already sent to WhatsApp or information shared with a service centre may also be held by those recipients or providers. Deleting our records does not automatically remove those copies. Tell us if you need help contacting the relevant service centre.</p>
+  {% else %}
+  <h1>Privacy policy</h1>
+  <p>Effective date: 15 September 2026</p>
+  <p>This policy covers the Engine D-Carb enquiry website and its WhatsApp enquiry notifications. For questions about your information, contact <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.</p>
+  <h2>Information we collect</h2>
+  <p>When you submit an enquiry, we store the information you provide, which may include your name, phone number, email address, vehicle details, location, selected service centre, workshop or business details, and enquiry preferences. We also store the quotation or enquiry summary, submission time, consent record, and message delivery information such as recipient number, message ID, status, and errors.</p>
+  <h2>How we use and share information</h2>
+  <p>We use this information to prepare an estimate, respond to your enquiry, coordinate service or machine enquiries, and diagnose notification delivery. Authorised staff can access enquiry records. For service enquiries, relevant contact, vehicle, and estimate details are shared with the selected service centre so it can contact you and arrange an appointment.</p>
+  <p>When you consent to WhatsApp notifications, we send enquiry information through Meta’s WhatsApp Business Platform to your number and the relevant service-centre contacts. Email enquiries may be sent through our email provider. These providers process information under their own policies, including <a href="https://www.whatsapp.com/legal/privacy-policy">WhatsApp’s privacy policy</a>.</p>
+  <h2>Consent and retention</h2>
+  <p>The enquiry form requires consent before saving your submission, and service quotations require WhatsApp consent before sending notifications. Enquiry submissions have a 24-month retention period. Associated technical logs or delivery records may be retained separately for troubleshooting. Incoming WhatsApp chat bodies are not stored by our delivery-status webhook.</p>
+  <h2>Your choices</h2>
+  <p>Contact us to request access to or correction of your enquiry information, withdraw consent to further WhatsApp updates, or request deletion. See our <a href="/data-deletion">data deletion instructions</a>. Withdrawing consent does not undo messages or enquiries already processed.</p>
+  <h2>Updates</h2>
+  <p>We may update this policy as the service changes. The effective date above identifies the current version.</p>
+  {% endif %}
+</main></body>
+</html>

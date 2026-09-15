@@ -39,7 +39,7 @@ def test_consent_engine_pricing_and_retention(tmp_path):
     public_page = client.get('/engine-d-carb')
     assert b'Nothing is uploaded automatically' not in public_page.data
     assert b'engine-integration.js' in public_page.data
-    assert b'engine-integration.js?v=20260914-7' in public_page.data
+    assert b'engine-integration.js?v=20260915-1' in public_page.data
     assert public_page.data.count(b'<details><summary>') == 7
     assert b'"@type": "FAQPage"' in public_page.data
     assert client.post('/api/engine-d-carb/quotations', json=engine_service(consent=False)).status_code == 400
@@ -169,7 +169,7 @@ def test_engine_whatsapp_sends_customer_and_selected_centre_templates(tmp_path, 
     class Response:
         def __enter__(self): return self
         def __exit__(self, *args): pass
-        def read(self): return b'{"messages":[{"id":"wamid.test"}]}'
+        def read(self): return json.dumps({'messages': [{'id': f'wamid.test{len(requests)}'}]}).encode()
 
     def post(request, timeout=0):
         requests.append(json.loads(request.data.decode('utf-8')))
@@ -187,13 +187,13 @@ def test_engine_whatsapp_sends_customer_and_selected_centre_templates(tmp_path, 
 
     response = client.post('/api/engine-d-carb/quotations', json=engine_service())
     assert response.status_code == 200
-    assert [item['status'] for item in response.json['whatsapp_delivery']] == ['sent', 'sent']
+    assert [item['status'] for item in response.json['whatsapp_delivery']] == ['accepted', 'accepted']
     assert [item['to'] for item in requests] == ['919876543210', '917727005151']
     assert [item['template']['name'] for item in requests] == [
         'engine_dcarb_service_quote', 'engine_dcarb_new_service_lead'
     ]
     with app.app_context():
-        assert Delivery.query.filter_by(channel='whatsapp', status='sent').count() == 2
+        assert Delivery.query.filter_by(channel='whatsapp', status='accepted').count() == 2
 
 
 def test_employee_empty_dropdowns_allow_manual_entry(tmp_path):

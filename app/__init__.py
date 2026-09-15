@@ -21,6 +21,8 @@ def create_app(test_config=None):
  app.register_blueprint(quotations_bp)
  from .portal import bp as portal_bp
  app.register_blueprint(portal_bp)
+ from .whatsapp_webhook import bp as whatsapp_webhook_bp
+ app.register_blueprint(whatsapp_webhook_bp)
  with app.app_context():
   db.create_all(); ensure_admin(app); ensure_battery_catalog(force=True)
   from .portal import purge_expired_submissions

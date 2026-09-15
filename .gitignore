@@ -15,6 +15,7 @@ __pycache__/
 .env
 instance/
 output/
+engine-dcarb-*.log
 *.db
 *.sqlite
 *.sqlite3

@@ -26,6 +26,15 @@ class Upload(db.Model):
  id=db.Column(db.Integer,primary_key=True); filename=db.Column(db.String(255)); sha256=db.Column(db.String(64)); record_count=db.Column(db.Integer); status=db.Column(db.String(30)); created_at=db.Column(db.DateTime,default=lambda:datetime.now(timezone.utc))
 class Delivery(db.Model):
  id=db.Column(db.Integer,primary_key=True); lead_id=db.Column(db.Integer); channel=db.Column(db.String(20)); target=db.Column(db.String(255)); status=db.Column(db.String(30)); detail=db.Column(db.Text); created_at=db.Column(db.DateTime,default=lambda:datetime.now(timezone.utc))
+class WhatsAppMessage(db.Model):
+ message_id=db.Column(db.String(255),primary_key=True)
+ delivery_id=db.Column(db.Integer,db.ForeignKey('delivery.id'),index=True)
+ submission_id=db.Column(db.Integer,db.ForeignKey('submission.id'),index=True)
+ status=db.Column(db.String(30),nullable=False,default='accepted')
+ event_timestamp=db.Column(db.BigInteger,nullable=False,default=0)
+ error_code=db.Column(db.String(40))
+ error_detail=db.Column(db.Text)
+ updated_at=db.Column(db.DateTime,nullable=False,default=lambda:datetime.now(timezone.utc))
 class EngineCentre(db.Model):
  id=db.Column(db.Integer,primary_key=True)
  key=db.Column(db.String(40),unique=True,nullable=False,index=True)

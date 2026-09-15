@@ -12,7 +12,7 @@ def restrict_to_engine_dcarb():
     path = request.path
     if path == '/':
         return engine_site_response()
-    if path == '/engine-d-carb':
+    if path in {'/engine-d-carb', '/privacy', '/data-deletion'}:
         return None
     if path in {'/api/engine-d-carb/centres', '/api/engine-d-carb/quotations'}:
         return None

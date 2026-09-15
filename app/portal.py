@@ -193,6 +193,8 @@ def send_whatsapp_template(target, template_name, parameters, recipient):
             ]}],
         },
     }
+    if not parameters:
+        payload['template'].pop('components', None)
     graph_request = urllib.request.Request(
         f'https://graph.facebook.com/{version}/{phone_number_id}/messages',
         data=json.dumps(payload, ensure_ascii=False).encode('utf-8'),
@@ -203,8 +205,8 @@ def send_whatsapp_template(target, template_name, parameters, recipient):
         with urllib.request.urlopen(graph_request, timeout=20) as response:
             response_data = json.loads(response.read().decode('utf-8'))
         message_id = ((response_data.get('messages') or [{}])[0].get('id') or '')
-        return {'recipient': recipient, 'target': normalized_target, 'status': 'sent',
-                'detail': message_id or 'Meta accepted the message.'}
+        return {'recipient': recipient, 'target': normalized_target, 'status': 'accepted' if message_id else 'failed',
+                'message_id': message_id, 'detail': message_id or 'Meta returned no message ID.'}
     except urllib.error.HTTPError as error:
         try:
             error_data = json.loads(error.read().decode('utf-8'))
@@ -220,6 +222,9 @@ def send_whatsapp_template(target, template_name, parameters, recipient):
 
 
 def send_engine_whatsapp(form, result, centre):
+    if os.getenv('WHATSAPP_TEST_MODE', '').lower() == 'true':
+        result['whatsapp_test_mode'] = True
+        return [send_whatsapp_template(form['servicePhone'], 'hello_world', [], 'customer')]
     customer_template = (os.getenv('WHATSAPP_CUSTOMER_TEMPLATE') or 'engine_dcarb_service_quote').strip()
     centre_template = (os.getenv('WHATSAPP_CENTRE_TEMPLATE') or 'engine_dcarb_new_service_lead').strip()
     vehicle = (f"{form['vehicleType']} — {form['vehicleBrand']} {form['vehicleModel']} "
@@ -314,6 +319,14 @@ def purge_expired_submissions():
     if not expired:
         return 0
     lead_ids = {item.lead_id for item in expired if item.lead_id}
+    from .models import WhatsAppMessage
+    messages = WhatsAppMessage.query.filter(WhatsAppMessage.submission_id.in_([item.id for item in expired])).all()
+    delivery_ids = [item.delivery_id for item in messages if item.delivery_id]
+    for message in messages:
+        db.session.delete(message)
+    db.session.flush()
+    if delivery_ids:
+        Delivery.query.filter(Delivery.id.in_(delivery_ids)).delete(synchronize_session=False)
     if lead_ids:
         Delivery.query.filter(Delivery.lead_id.in_(lead_ids)).delete(synchronize_session=False)
         Lead.query.filter(Lead.id.in_(lead_ids)).delete(synchronize_session=False)
@@ -379,7 +392,7 @@ def engine_site_response():
         '<meta name="application-name" content="Engine D-Carb">'
         f'<script type="application/ld+json">{json.dumps(faq_schema, ensure_ascii=False)}</script></head>'
     )
-    scripts = '<script src="/static/engine-integration.js?v=20260914-7"></script></body>'
+    scripts = '<script src="/static/engine-integration.js?v=20260915-1"></script></body>'
     return Response(html.replace('</head>', integration).replace('</body>', scripts), mimetype='text/html')
 
 
@@ -489,10 +502,16 @@ def engine_quotation():
         result['business_whatsapp_number'] = normalize_whatsapp_number(
             os.getenv('ENGINE_DCARB_WHATSAPP_NUMBER') or '919607576029')
     normalized = dict(form, name=name, phone=phone, email=email)
-    record_submission('engine_dcarb', kind, normalized, result, consented=True)
+    submission = record_submission('engine_dcarb', kind, normalized, result, consented=True)
+    db.session.flush()
+    from .whatsapp_webhook import track_message
     for item in result.get('whatsapp_delivery', []):
-        db.session.add(Delivery(channel='whatsapp', target=item['target'], status=item['status'],
-                                detail=f"{item['recipient']}: {item['detail']}"))
+        delivery = Delivery(channel='whatsapp', target=item['target'], status=item['status'],
+                            detail=f"{item['recipient']}: {item['detail']}")
+        db.session.add(delivery)
+        db.session.flush()
+        if item.get('message_id'):
+            track_message(item['message_id'], delivery, submission)
     db.session.commit()
     if email_requested:
         result['email_delivery'] = send_engine_emails(form, result, email)

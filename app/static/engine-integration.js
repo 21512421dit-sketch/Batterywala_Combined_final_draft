@@ -211,10 +211,10 @@
         completionStatus.classList.remove('warning');
       } else {
         const deliveries = result.whatsapp_delivery || [];
-        const customerSent = deliveries.some(item => item.recipient === 'customer' && item.status === 'sent');
-        const centreSent = deliveries.some(item => item.recipient.startsWith('centre:') && item.status === 'sent');
+        const customerSent = deliveries.some(item => item.recipient === 'customer' && item.status === 'accepted');
+        const centreSent = deliveries.some(item => item.recipient.startsWith('centre:') && item.status === 'accepted');
         completionStatus.textContent = customerSent && centreSent
-          ? `Thank you, ${payload.customerName}. Your quotation was sent on WhatsApp and ${result.centre.name} was notified.`
+          ? `Thank you, ${payload.customerName}. Your enquiry was saved. Meta accepted WhatsApp messages for you and ${result.centre.name}; delivery confirmation is pending.`
           : `Thank you, ${payload.customerName}. Your enquiry was saved, but WhatsApp delivery was not completed. Please ask Engine D-Carb to check the approved templates and phone-number status.`;
         completionStatus.classList.toggle('warning', !(customerSent && centreSent));
       }

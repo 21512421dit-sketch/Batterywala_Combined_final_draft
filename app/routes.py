@@ -8,6 +8,12 @@ from . import db
 from .models import User,Recipient,Lead,Upload,Delivery,BatteryFitment,BatteryProduct,EngineCentre
 from .services import ALLOWED_BRANDS,predict,public_result,extract_document,publish,load_data,load_form_schemas,validate_form,notify,norm,fitment_application
 bp=Blueprint('main',__name__)
+
+@bp.get('/privacy')
+@bp.get('/data-deletion')
+def engine_privacy_pages():
+ return render_template('engine_privacy.html', deletion=request.path == '/data-deletion',
+                        contact_email=os.getenv('ENGINE_DCARB_EMAIL') or 'engine.dcarb@gmail.com')
 def csrf():
  import secrets
  if 'csrf' not in session:session['csrf']=secrets.token_urlsafe(24)
