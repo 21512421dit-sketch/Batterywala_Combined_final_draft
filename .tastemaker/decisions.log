@@ -11,3 +11,10 @@
 2026-09-16 | kept | WhatsApp success feedback uses short operational copy naming the notified admin and, for service enquiries, the service-centre head; provider-level “Meta accepted” wording is not shown to customers.
 2026-09-16 | kept | Engine D-Carb places four customer benefits in a high-contrast bullet section immediately below the hero ticker and repeats the same benefits in the moving orange strip for fast scanning.
 2026-09-17 | kept | Engine D-Carb replaces the generic quotation and enquiry labels with two explicit routes—D-Carb Now for the Vehicle D-Carb Form and Business Enquiry for the New Machine Enquiry Form—and uses text-only floating actions instead of icon bubbles.
+2026-09-17 | kept | The Engine D-Carb mobile menu adds a direct Google customer-reviews route and one compact expandable social-media group for the official Facebook, Instagram and LinkedIn pages.
+2026-09-17 | rejected | Navigation and hero enquiry triggers must not reuse the large in-page enquiry-card class; behavior and presentation are separated so mobile-only links stay hidden on desktop and hero actions retain their intended dimensions.
+2026-09-17 | rejected | Text-only floating actions and an outbound Google-reviews menu link; restore the wrench/building quick-action icons and keep reviews inside the site.
+2026-09-17 | kept | Follow Us sits beside Applications on desktop and exposes Facebook, Instagram, and LinkedIn logos; the same logos remain visible inside the open mobile menu, while an on-page Google review slider follows BatteryWala's pattern.
+2026-09-17 | kept | The Google review carousel shows two cards on desktop and one on mobile so its previous and next controls always have a real destination instead of appearing disabled while all reviews are already visible.
+2026-09-17 | rejected | A limited three-review carousel that stops at either end does not match BatteryWala's continuous customer-feedback pattern.
+2026-09-17 | kept | Engine D-Carb rotates 12 featured public Google reviews every 5.2 seconds, wraps continuously, shows three, two, or one card by viewport, pauses for hover and keyboard focus, and respects reduced-motion preferences.

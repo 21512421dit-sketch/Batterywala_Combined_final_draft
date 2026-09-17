@@ -440,11 +440,11 @@ def engine_site_response():
         for question, answer in ENGINE_FAQS]}
     integration = (
         '<link rel="icon" href="/static/images/batterywala-logo-original.png">'
-        '<link rel="stylesheet" href="/static/engine-integration.css?v=20260917-2">'
+        '<link rel="stylesheet" href="/static/engine-integration.css?v=20260917-9">'
         '<meta name="application-name" content="Engine D-Carb">'
         f'<script type="application/ld+json">{json.dumps(faq_schema, ensure_ascii=False)}</script></head>'
     )
-    scripts = '<script src="/static/engine-integration.js?v=20260917-2"></script></body>'
+    scripts = '<script src="/static/engine-integration.js?v=20260917-9"></script></body>'
     return Response(html.replace('</head>', integration).replace('</body>', scripts), mimetype='text/html')
 
 

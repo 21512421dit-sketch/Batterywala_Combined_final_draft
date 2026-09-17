@@ -39,7 +39,7 @@ def test_consent_engine_pricing_and_retention(tmp_path):
     public_page = client.get('/engine-d-carb')
     assert b'Nothing is uploaded automatically' not in public_page.data
     assert b'engine-integration.js' in public_page.data
-    assert b'engine-integration.js?v=20260917-2' in public_page.data
+    assert b'engine-integration.js?v=20260917-9' in public_page.data
     assert b"heroPrimary.textContent='Request a quotation" not in public_page.data
     assert b'>Enquire<' not in public_page.data
     assert public_page.data.count(b'<details><summary>') == 7
@@ -176,11 +176,32 @@ def test_engine_click_to_chat_uses_business_number_and_no_api_placeholder(tmp_pa
     assert b'Meta accepted WhatsApp messages' not in script.data
     assert b'WhatsApp message sent to admin and service centre head.' in script.data
     assert b'WhatsApp message sent to admin.' in script.data
-    assert b'>D-Carb Now</span>' in script.data
-    assert b'>Business Enquiry</span>' in script.data
+    assert b'class="engine-floating-tooltip">D-Carb Now</span>' in script.data
+    assert b'class="engine-floating-tooltip">Business Enquiry</span>' in script.data
     assert b'Vehicle D-Carb Form' in script.data
     assert b'New Machine Enquiry Form' in script.data
-    assert b'<svg viewBox="0 0 24 24"' not in script.data
+    assert b'<svg viewBox="0 0 24 24"' in script.data
+    assert b'Check Customer Reviews' not in script.data
+    assert b'<summary>Follow Us</summary>' in script.data
+    assert b'67 Google reviews' in script.data
+    assert b'aria-label="Write a Google review for Engine D-Carb"' in script.data
+    assert b'ludocid=4383837332745470402#lrd=0x3bdba30b2ee3c44f:0x3cd684d3db63c1c2,3,,,' in script.data
+    assert b"reviewsSection.id = 'reviews'" in script.data
+    assert b'window.innerWidth <= 640 ? 1 : window.innerWidth <= 980 ? 2 : 3' in script.data
+    assert script.data.count(b'<article class="engine-review-card">') == 12
+    assert b'Nilesh Sali' in script.data
+    assert b'Sultan Ali Kudchiwala' in script.data
+    assert b"window.setInterval(() => moveReviews('next'), 5200)" in script.data
+    assert b"addEventListener('mouseenter', stopReviews)" in script.data
+    assert b'reviewNext.disabled' not in script.data
+    assert b'reviewPrev.disabled' not in script.data
+    assert b'https://www.facebook.com/share/1H26RyN3ML/' in script.data
+    assert b'https://www.instagram.com/enginedcarb?stkn=MXdjeW5lMjJnNmxhbQ==' in script.data
+    assert b'https://www.linkedin.com/company/engine-dcarb/' in script.data
+    assert script.data.count(b'rel="noopener noreferrer"') == 4
+    assert b'class="engine-menu-enquiry engine-enquiry-trigger"' in script.data
+    assert b'class="engine-menu-enquiry engine-enquiry-launch"' not in script.data
+    assert b'class="engine-hero-action service engine-enquiry-trigger"' in script.data
 
 
 def test_engine_whatsapp_sends_customer_and_selected_centre_templates(tmp_path, monkeypatch):

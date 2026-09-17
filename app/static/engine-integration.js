@@ -68,17 +68,140 @@
   const navLinks = document.getElementById('navLinks');
   navLinks?.querySelector('a[href="#enquiry"]')?.remove();
   navLinks?.insertAdjacentHTML('beforeend', `
-    <a class="engine-menu-enquiry engine-enquiry-launch" href="#enquiry" data-enquiry-type="service">D-Carb Now</a>
-    <a class="engine-menu-enquiry engine-enquiry-launch" href="#enquiry" data-enquiry-type="machine">Business Enquiry</a>`);
+    <details class="engine-nav-social">
+      <summary>Follow Us</summary>
+      <div class="engine-social-links" aria-label="Engine D-Carb social media">
+        <a class="facebook" href="https://www.facebook.com/share/1H26RyN3ML/" target="_blank" rel="noopener noreferrer" aria-label="Follow Engine D-Carb on Facebook">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5.02 3.66 9.19 8.44 9.94v-7.04H7.9v-2.9h2.54V9.84c0-2.52 1.5-3.91 3.77-3.91 1.09 0 2.23.2 2.23.2v2.45h-1.25c-1.24 0-1.63.77-1.63 1.56v1.92h2.77l-.44 2.9h-2.33V22C18.34 21.25 22 17.08 22 12.06Z"/></svg>
+          <span>Facebook</span>
+        </a>
+        <a class="instagram" href="https://www.instagram.com/enginedcarb?stkn=MXdjeW5lMjJnNmxhbQ==" target="_blank" rel="noopener noreferrer" aria-label="Follow Engine D-Carb on Instagram">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.25"/><circle cx="17.4" cy="6.7" r="1" fill="currentColor" stroke="none"/></svg>
+          <span>Instagram</span>
+        </a>
+        <a class="linkedin" href="https://www.linkedin.com/company/engine-dcarb/" target="_blank" rel="noopener noreferrer" aria-label="Follow Engine D-Carb on LinkedIn">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2.5"/><circle cx="7.3" cy="8" r="1.25" fill="currentColor" stroke="none"/><path d="M6.2 10.5v7.1M10.3 17.6v-7.1m0 3.1c.7-2 4.8-2.3 4.8 1.1v2.9"/></svg>
+          <span>LinkedIn</span>
+        </a>
+      </div>
+    </details>
+    <a class="engine-menu-enquiry engine-enquiry-trigger" href="#enquiry" data-enquiry-type="service">D-Carb Now</a>
+    <a class="engine-menu-enquiry engine-enquiry-trigger" href="#enquiry" data-enquiry-type="machine">Business Enquiry</a>`);
+
+  const socialMenu = navLinks?.querySelector('.engine-nav-social');
+  const mobileNav = window.matchMedia('(max-width: 900px)');
+  const syncSocialMenu = event => {
+    if (socialMenu) socialMenu.open = event.matches;
+  };
+  syncSocialMenu(mobileNav);
+  mobileNav.addEventListener?.('change', syncSocialMenu);
 
   const heroActions = document.querySelector('.hero .hero-actions');
   if (heroActions) {
     heroActions.classList.add('engine-hero-actions');
     heroActions.innerHTML = `
-      <a class="engine-hero-action service engine-enquiry-launch" href="#enquiry" data-enquiry-type="service">D-Carb Now</a>
-      <a class="engine-hero-action business engine-enquiry-launch" href="#enquiry" data-enquiry-type="machine">Business Enquiry</a>
+      <a class="engine-hero-action service engine-enquiry-trigger" href="#enquiry" data-enquiry-type="service">D-Carb Now</a>
+      <a class="engine-hero-action business engine-enquiry-trigger" href="#enquiry" data-enquiry-type="machine">Business Enquiry</a>
       <a href="#process" class="btn-ghost"><span class="play" aria-hidden="true">&#9654;</span> See how it works</a>`;
   }
+
+  // Keep Google feedback in the website, following BatteryWala's continuously rotating review pattern.
+  const reviewsSection = document.createElement('section');
+  reviewsSection.id = 'reviews';
+  reviewsSection.className = 'engine-reviews section';
+  reviewsSection.setAttribute('aria-labelledby', 'engineReviewsTitle');
+  reviewsSection.innerHTML = `
+    <div class="shell">
+      <div class="engine-reviews-head">
+        <div>
+          <span class="eyebrow">Customer feedback</span>
+          <h2 id="engineReviewsTitle">What customers say.</h2>
+          <p>Recent public feedback for Engine D-Carb in Chhatrapati Sambhajinagar.</p>
+        </div>
+        <a class="engine-google-summary" href="https://www.google.com/search?q=Engine+D-Carb&ludocid=4383837332745470402#lrd=0x3bdba30b2ee3c44f:0x3cd684d3db63c1c2,3,,," target="_blank" rel="noopener noreferrer" aria-label="Write a Google review for Engine D-Carb">
+          <span class="engine-google-mark" aria-hidden="true">G</span>
+          <span><strong>5.0</strong><span class="engine-review-stars" aria-hidden="true">&#9733;&#9733;&#9733;&#9733;&#9733;</span><small>67 Google reviews</small></span>
+        </a>
+      </div>
+      <div class="engine-review-slider">
+        <button class="engine-review-arrow prev" type="button" aria-label="Previous customer review">&#8592;</button>
+        <div class="engine-review-viewport">
+          <div class="engine-review-track">
+            <article class="engine-review-card"><div class="engine-review-card-top"><span class="engine-review-avatar">N</span><span><strong>Nilesh Sali</strong><small>Google review · 2 months ago</small></span></div><div class="engine-review-stars" aria-label="5 out of 5 stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><blockquote>“Recently, I got the engine decarbonization of my 15-year-old Swift Dzire done from Care 4 Earth Enterprises.”</blockquote></article>
+            <article class="engine-review-card"><div class="engine-review-card-top"><span class="engine-review-avatar">S</span><span><strong>Sultan Ali Kudchiwala</strong><small>Google review · 2 months ago</small></span></div><div class="engine-review-stars" aria-label="5 out of 5 stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><blockquote>“Fantastic results after doing Engine D-Carb on my Kia Seltos. Substantial decrease in vibration and noise and increased refinement.”</blockquote></article>
+            <article class="engine-review-card"><div class="engine-review-card-top"><span class="engine-review-avatar">V</span><span><strong>Vinod Patkule</strong><small>Google review · 5 months ago</small></span></div><div class="engine-review-stars" aria-label="5 out of 5 stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><blockquote>“D-Carbon service of my Kia Sonet has been completed successfully. The post-service difference is noticeable.”</blockquote></article>
+            <article class="engine-review-card"><div class="engine-review-card-top"><span class="engine-review-avatar">R</span><span><strong>Ratnadeep Shejul</strong><small>Google review · 7 months ago</small></span></div><div class="engine-review-stars" aria-label="5 out of 5 stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><blockquote>“The difference is clearly noticeable. Pickup has improved, acceleration is faster, and mileage has increased.”</blockquote></article>
+            <article class="engine-review-card"><div class="engine-review-card-top"><span class="engine-review-avatar">S</span><span><strong>Sushant Rautmare</strong><small>Google review · 3 months ago</small></span></div><div class="engine-review-stars" aria-label="5 out of 5 stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><blockquote>“Vehicle noise is very smooth and there is no vibration while driving. Average also increased. Overall very happy with the service.”</blockquote></article>
+            <article class="engine-review-card"><div class="engine-review-card-top"><span class="engine-review-avatar">P</span><span><strong>Prashant Gaikwad</strong><small>Google review · 5 months ago</small></span></div><div class="engine-review-stars" aria-label="5 out of 5 stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><blockquote>“A great experience driving after getting my engine decarbonized. I appreciate the honest suggestions and quick work.”</blockquote></article>
+            <article class="engine-review-card"><div class="engine-review-card-top"><span class="engine-review-avatar">N</span><span><strong>Nitin Raut</strong><small>Google review · 2 months ago</small></span></div><div class="engine-review-stars" aria-label="5 out of 5 stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><blockquote>“Professional service. Vibrations and temperature improved, and pickup has become a lot better. Recommend!”</blockquote></article>
+            <article class="engine-review-card"><div class="engine-review-card-top"><span class="engine-review-avatar">T</span><span><strong>Tiger motovloger</strong><small>Google review · 7 months ago</small></span></div><div class="engine-review-stars" aria-label="5 out of 5 stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><blockquote>“Very happy to share my experience with my VW Tiguan 2.0 TDI. After D-Carb it is running very smoothly and efficiently.”</blockquote></article>
+            <article class="engine-review-card"><div class="engine-review-card-top"><span class="engine-review-avatar">R</span><span><strong>RajDevdhePatil</strong><small>Google review · 2 months ago</small></span></div><div class="engine-review-stars" aria-label="5 out of 5 stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><blockquote>“Excellent service, genuine process. The car was much smoother after the decarb. Five-out-of-five service.”</blockquote></article>
+            <article class="engine-review-card"><div class="engine-review-card-top"><span class="engine-review-avatar">S</span><span><strong>Suraj Rathod</strong><small>Google review · 2 months ago</small></span></div><div class="engine-review-stars" aria-label="5 out of 5 stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><blockquote>“Quality work, very effective. Seen a good amount of change in engine noise and smoothness. Recommend.”</blockquote></article>
+            <article class="engine-review-card"><div class="engine-review-card-top"><span class="engine-review-avatar">G</span><span><strong>Geetanjali Deshpande</strong><small>Google review</small></span></div><div class="engine-review-stars" aria-label="5 out of 5 stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><blockquote>“Super good idea to save money and save the environment.”</blockquote></article>
+            <article class="engine-review-card"><div class="engine-review-card-top"><span class="engine-review-avatar">P</span><span><strong>Prashant Jagtap</strong><small>Google review · 6 months ago</small></span></div><div class="engine-review-stars" aria-label="5 out of 5 stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><blockquote>“The work was done perfectly with great attention to detail.”</blockquote></article>
+          </div>
+        </div>
+        <button class="engine-review-arrow next" type="button" aria-label="Next customer review">&#8594;</button>
+      </div>
+      <div class="engine-review-dots" aria-label="Choose customer review"></div>
+    </div>`;
+  enquirySection?.before(reviewsSection);
+
+  const reviewViewport = reviewsSection.querySelector('.engine-review-viewport');
+  const reviewTrack = reviewsSection.querySelector('.engine-review-track');
+  const reviewCards = [...reviewsSection.querySelectorAll('.engine-review-card')];
+  const reviewDots = reviewsSection.querySelector('.engine-review-dots');
+  const reviewPrev = reviewsSection.querySelector('.engine-review-arrow.prev');
+  const reviewNext = reviewsSection.querySelector('.engine-review-arrow.next');
+  let reviewIndex = 0;
+  let reviewTimer;
+  const reviewPerView = () => window.innerWidth <= 640 ? 1 : window.innerWidth <= 980 ? 2 : 3;
+  const reviewMaxIndex = () => Math.max(0, reviewCards.length - reviewPerView());
+  const renderReviews = () => {
+    const perView = reviewPerView();
+    const maxIndex = reviewMaxIndex();
+    reviewIndex = Math.min(reviewIndex, maxIndex);
+    reviewCards.forEach(card => { card.style.flexBasis = `calc(${100 / perView}% - ${(18 * (perView - 1)) / perView}px)`; });
+    const gap = Number.parseFloat(window.getComputedStyle(reviewTrack).gap) || 18;
+    const slideWidth = reviewCards[0].getBoundingClientRect().width + gap;
+    reviewTrack.style.transform = `translateX(-${reviewIndex * slideWidth}px)`;
+    reviewDots.replaceChildren();
+    for (let index = 0; index <= maxIndex; index += 1) {
+      const dot = document.createElement('button');
+      dot.type = 'button';
+      dot.className = index === reviewIndex ? 'active' : '';
+      dot.setAttribute('aria-label', `Show review ${index + 1}`);
+      dot.setAttribute('aria-current', index === reviewIndex ? 'true' : 'false');
+      dot.addEventListener('click', () => { reviewIndex = index; renderReviews(); restartReviews(); });
+      reviewDots.append(dot);
+    }
+  };
+  const moveReviews = direction => {
+    const maxIndex = reviewMaxIndex();
+    reviewIndex = direction === 'next'
+      ? (reviewIndex >= maxIndex ? 0 : reviewIndex + 1)
+      : (reviewIndex <= 0 ? maxIndex : reviewIndex - 1);
+    renderReviews();
+  };
+  const stopReviews = () => {
+    if (reviewTimer) window.clearInterval(reviewTimer);
+    reviewTimer = undefined;
+  };
+  const restartReviews = () => {
+    stopReviews();
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      reviewTimer = window.setInterval(() => moveReviews('next'), 5200);
+    }
+  };
+  reviewPrev.addEventListener('click', () => { moveReviews('prev'); restartReviews(); });
+  reviewNext.addEventListener('click', () => { moveReviews('next'); restartReviews(); });
+  reviewsSection.querySelector('.engine-review-slider').addEventListener('mouseenter', stopReviews);
+  reviewsSection.querySelector('.engine-review-slider').addEventListener('mouseleave', restartReviews);
+  reviewsSection.querySelector('.engine-review-slider').addEventListener('focusin', stopReviews);
+  reviewsSection.querySelector('.engine-review-slider').addEventListener('focusout', restartReviews);
+  window.addEventListener('resize', renderReviews, {passive: true});
+  renderReviews();
+  restartReviews();
 
   const enquiryTypeSelector = form.querySelector('input[name="enquiryType"]')?.closest('fieldset');
   if (enquiryTypeSelector) enquiryTypeSelector.hidden = true;
@@ -87,7 +210,7 @@
   if (servicePanelTitle) servicePanelTitle.textContent = 'Vehicle D-Carb Form';
   if (machinePanelTitle) machinePanelTitle.textContent = 'New Machine Enquiry Form';
 
-  document.querySelectorAll('.engine-enquiry-launch').forEach(button =>
+  document.querySelectorAll('.engine-enquiry-launch, .engine-enquiry-trigger').forEach(button =>
     button.addEventListener('click', event => {
       event.preventDefault();
       navLinks?.classList.remove('open');
@@ -100,10 +223,12 @@
   floatingActions.setAttribute('aria-label', 'Quick enquiry actions');
   floatingActions.innerHTML = `
     <a class="engine-floating-action service" href="#enquiry" data-enquiry-type="service" aria-label="Open Vehicle D-Carb Form">
-      <span>D-Carb Now</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 5.5a5.4 5.4 0 0 1-7.2 5.1L7 17.4a2.1 2.1 0 1 1-3-3l6.8-6.8A5.4 5.4 0 0 1 16 1l-3.1 3.1 3 3L19 4a5.4 5.4 0 0 1 2 1.5Z"/><path d="m14.5 14.5 5.3 5.3"/></svg>
+      <span class="engine-floating-tooltip">D-Carb Now</span>
     </a>
     <a class="engine-floating-action machine" href="#enquiry" data-enquiry-type="machine" aria-label="Open New Machine Enquiry Form">
-      <span>Business Enquiry</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9h10v11M7 9V5h7v4M14 13h6v7M7 13h2m-2 3h2m8-1h1"/><path d="M2 20h20"/></svg>
+      <span class="engine-floating-tooltip">Business Enquiry</span>
     </a>`;
   document.body.append(floatingActions);
   floatingActions.querySelectorAll('.engine-floating-action').forEach(action => {
