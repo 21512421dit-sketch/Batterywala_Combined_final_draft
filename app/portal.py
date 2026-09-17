@@ -37,7 +37,7 @@ ENGINE_FAQS = (
     ('How much does it cost to decarbonize an engine?', 'Cost varies with vehicle class, fuel type, engine capacity and service location. Submit your vehicle details for a tentative quotation; the service team confirms the final price.'),
     ('Does decarbonizing increase mileage?', 'It may help recover efficiency lost to carbon build-up, but results vary with engine condition, maintenance, fuel quality and driving style. No fixed mileage improvement is guaranteed.'),
     ('How long does engine decarbonization take?', 'The Engine D-Carb service typically takes 45 to 90 minutes, depending on the vehicle, inspection and selected cycle.'),
-    ('What signs may indicate carbon build-up?', 'Possible signs include rough idling, sluggish response, visible exhaust smoke or a change in fuel efficiency. These symptoms can have other causes, so a vehicle check remains important.'),
+    ('What signs may indicate carbon build-up?', 'Possible signs include rough idling, sluggish response, visible exhaust smoke or a change in Engine Performance. These symptoms can have other causes, so a vehicle check remains important.'),
     ('How often should an engine be decarbonized?', 'There is no universal interval for every vehicle. Driving pattern, symptoms, mileage, maintenance history and the manufacturer’s guidance should inform the decision.'),
 )
 EXPORT_COLUMNS = {
@@ -221,12 +221,48 @@ def send_whatsapp_template(target, template_name, parameters, recipient):
                 'detail': 'Unable to reach the WhatsApp service.'}
 
 
-def send_engine_whatsapp(form, result, centre):
+def engine_admin_number():
+    return normalize_whatsapp_number(
+        os.getenv('ENGINE_DCARB_ADMIN_WHATSAPP_NUMBER') or '919067671513')
+
+
+def machine_admin_details(form):
+    return (
+        f"Representative: {form['representativeName']}; "
+        f"WhatsApp: {form['machinePhone']}; "
+        f"Email: {form['machineEmail']}; "
+        f"Company & address: {form['companyAddress']}; "
+        f"Business details: {form['businessDetails']}; "
+        f"Location: {form['machineCity']} — {form['machinePin']}; "
+        f"Other details: {form.get('machineDetails') or 'Not provided'}"
+    )
+
+
+def send_engine_whatsapp(form, result, centre=None):
     if os.getenv('WHATSAPP_TEST_MODE', '').lower() == 'true':
         result['whatsapp_test_mode'] = True
-        return [send_whatsapp_template(form['servicePhone'], 'hello_world', [], 'customer')]
-    customer_template = (os.getenv('WHATSAPP_CUSTOMER_TEMPLATE') or 'engine_dcarb_service_quote').strip()
-    centre_template = (os.getenv('WHATSAPP_CENTRE_TEMPLATE') or 'engine_dcarb_new_service_lead').strip()
+        customer_phone = form.get('servicePhone') or form.get('machinePhone')
+        return [send_whatsapp_template(customer_phone, 'hello_world', [], 'customer')]
+
+    if form['enquiryType'] == 'machine':
+        customer_template = (os.getenv('WHATSAPP_MACHINE_CUSTOMER_TEMPLATE') or
+                             'engine_dcarb_machine_enquiry_confirmation').strip()
+        admin_template = (os.getenv('WHATSAPP_MACHINE_ADMIN_TEMPLATE') or
+                          'engine_dcarb_admin_machine_lead').strip()
+        return [
+            send_whatsapp_template(
+                form['machinePhone'], customer_template,
+                [form['representativeName'], form['companyAddress']], 'customer'),
+            send_whatsapp_template(
+                engine_admin_number(), admin_template,
+                [machine_admin_details(form)], 'admin'),
+        ]
+
+    customer_template = (os.getenv('WHATSAPP_CUSTOMER_TEMPLATE') or
+                         'engine_dcarb_service_quote').strip()
+    centre_template = (os.getenv('WHATSAPP_CENTRE_TEMPLATE') or
+                       'engine_dcarb_new_service_lead').strip()
+    admin_template = (os.getenv('WHATSAPP_ADMIN_TEMPLATE') or centre_template).strip()
     vehicle = (f"{form['vehicleType']} — {form['vehicleBrand']} {form['vehicleModel']} "
                f"({form['passingYear']}), {form['fuelType']}, {form['engineCc']} CC")
     deliveries = [send_whatsapp_template(
@@ -238,6 +274,21 @@ def send_engine_whatsapp(form, result, centre):
                 contact.phone, centre_template,
                 [form['customerName'], form['servicePhone'], vehicle, result['indicative_cost'],
                  result['centre']['name']], f'centre:{contact.contact_name}'))
+    centre_heads = ', '.join(
+        f'{contact.contact_name} ({contact.phone})' for contact in centre.contacts
+    ) if centre and centre.contacts else 'To be assigned'
+    admin_vehicle = (
+        f"{vehicle}; {int(form['kilometres']):,} km; "
+        f"Other details: {form.get('serviceDetails') or 'Not provided'}"
+    )
+    centre_details = (
+        f"{result['centre']['name']} — {result['centre']['address']}; "
+        f"Centre head handling: {centre_heads}"
+    )
+    deliveries.append(send_whatsapp_template(
+        engine_admin_number(), admin_template,
+        [form['customerName'], form['servicePhone'], admin_vehicle,
+         result['indicative_cost'], centre_details], 'admin'))
     return deliveries
 
 
@@ -378,6 +429,7 @@ def engine_site_response():
                         'Complete the form, choose your nearest centre and send your enquiry to the service team.')
     html = html.replace('Continue on WhatsApp to receive tentative cost and nearby service-centre details.',
                         'After submitting, open WhatsApp with your enquiry already filled in and press Send.')
+    html = html.replace('prints a dated emission report', 'generates an emission report')
     faq_markup = ''.join(f'<details><summary>{question}</summary><p>{answer}</p></details>'
                          for question, answer in ENGINE_FAQS)
     html = re.sub(r'(<div class="faq-list reveal">).*?(</div></div></section>`;)',
@@ -388,11 +440,11 @@ def engine_site_response():
         for question, answer in ENGINE_FAQS]}
     integration = (
         '<link rel="icon" href="/static/images/batterywala-logo-original.png">'
-        '<link rel="stylesheet" href="/static/engine-integration.css?v=20260914-5">'
+        '<link rel="stylesheet" href="/static/engine-integration.css?v=20260917-2">'
         '<meta name="application-name" content="Engine D-Carb">'
         f'<script type="application/ld+json">{json.dumps(faq_schema, ensure_ascii=False)}</script></head>'
     )
-    scripts = '<script src="/static/engine-integration.js?v=20260915-1"></script></body>'
+    scripts = '<script src="/static/engine-integration.js?v=20260917-2"></script></body>'
     return Response(html.replace('</head>', integration).replace('</body>', scripts), mimetype='text/html')
 
 
@@ -443,9 +495,6 @@ def engine_quotation():
     if selected_machine and selected_machine not in MACHINES:
         return jsonify(error='Choose a valid Engine D-Carb machine.'), 400
     if kind == 'service':
-        whatsapp_consented = form.get('whatsappConsent') is True or form.get('whatsappConsent') == 'true'
-        if not whatsapp_consented:
-            return jsonify(error='WhatsApp consent is required before we can send quotation and appointment updates.'), 400
         required = ('customerName', 'servicePhone', 'vehicleType', 'vehicleBrand', 'vehicleModel', 'passingYear',
                     'fuelType', 'engineCc', 'kilometres', 'selectedCentre')
         if any(not form.get(key) for key in required):
@@ -497,10 +546,9 @@ def engine_quotation():
         return jsonify(error='Enter a valid email address.'), 400
     if email_requested and not email:
         return jsonify(error='Enter a valid email address to receive the quotation.'), 400
-    if kind == 'service':
-        result['whatsapp_delivery'] = send_engine_whatsapp(form, result, centre)
-        result['business_whatsapp_number'] = normalize_whatsapp_number(
-            os.getenv('ENGINE_DCARB_WHATSAPP_NUMBER') or '919607576029')
+    result['whatsapp_delivery'] = send_engine_whatsapp(form, result, centre if kind == 'service' else None)
+    result['business_whatsapp_number'] = normalize_whatsapp_number(
+        os.getenv('ENGINE_DCARB_WHATSAPP_NUMBER') or '919607576029')
     normalized = dict(form, name=name, phone=phone, email=email)
     submission = record_submission('engine_dcarb', kind, normalized, result, consented=True)
     db.session.flush()

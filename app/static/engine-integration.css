@@ -1,6 +1,6 @@
 /* tastemaker · imported Engine D-Carb narrative + consent transaction · palette preserved · critique: ShowTell 5 · Phil 5 · Hier 4 · Spec 5 · Restr 4 · Var 4 */
-.engine-consent{grid-column:1/-1;display:grid;grid-template-columns:22px minmax(0,1fr);align-items:start;gap:12px;margin:18px 0 4px;padding:16px;border:1px solid rgba(16,46,60,.18);border-radius:12px;background:rgba(255,255,255,.72);color:#263b49;font-size:12px;line-height:1.55;cursor:pointer}
-.engine-consent input{width:20px;height:20px;margin:1px 0 0;accent-color:#ff7a14}
+.engine-consent{grid-column:1/-1;display:grid;grid-template-columns:18px minmax(0,1fr);align-items:start;gap:9px;margin:14px 0 2px;padding:12px;border:1px solid rgba(16,46,60,.18);border-radius:10px;background:rgba(255,255,255,.72);color:#263b49;font-size:11px;line-height:1.45;cursor:pointer}
+.engine-consent input{width:16px;height:16px;margin:1px 0 0;accent-color:#ff7a14}
 .engine-consent:focus-within{outline:3px solid rgba(255,122,20,.32);outline-offset:3px}
 .enquiry-submit[aria-busy="true"]{opacity:.72;cursor:wait}
 .quote-result:focus{outline:3px solid rgba(255,122,20,.34);outline-offset:5px}
@@ -8,11 +8,18 @@
 .engine-message-preview{display:grid;gap:11px;margin-top:20px;padding:18px;border:1px solid rgba(34,189,242,.35);border-radius:16px;background:#fff}.engine-message-preview>strong{color:#062b49}.engine-message-preview pre{max-height:250px;margin:0;padding:14px;border-radius:10px;background:#eef6fb;color:#263b49;font:12px/1.6 inherit;white-space:pre-wrap;overflow:auto}.quote-action[aria-disabled="true"]{opacity:.58;cursor:not-allowed;pointer-events:none}
 .quote-action{white-space:nowrap}
 .engine-email-choice{margin:18px 0 4px;padding:16px;border:1px solid rgba(34,189,242,.35);border-radius:14px;background:#f2fbff}.engine-email-choice>label{display:grid;grid-template-columns:22px minmax(0,1fr);align-items:start;gap:12px;cursor:pointer}.engine-email-choice input{width:20px;height:20px;margin:1px 0 0;accent-color:#ff7a14}.engine-email-choice span{display:grid;gap:4px}.engine-email-choice strong{color:#062b49;font-size:14px}.engine-email-choice small{color:#426071;font-size:12px;line-height:1.5}.engine-email-choice:focus-within{outline:3px solid rgba(255,122,20,.32);outline-offset:3px}
-@media(max-width:640px){.engine-consent{padding:14px;font-size:11px}}
+@media(max-width:640px){.engine-consent{padding:11px;font-size:10.5px}}
 
 /* Compact page rhythm and progressive enquiry disclosure. */
 .section{padding:76px 0}
 .section-head{margin-bottom:34px}
+.engine-hero-actions{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px!important;max-width:650px}
+.engine-hero-action{min-height:58px;display:flex;align-items:center;justify-content:center;padding:15px 22px;border:1px solid transparent;border-radius:99px;color:#fff;font-size:.92rem;font-weight:900;text-align:center;touch-action:manipulation;transition:transform 160ms ease,background-color 160ms ease,border-color 160ms ease}
+.engine-hero-action.service{background:#ff7a14;border-color:#ff7a14;box-shadow:0 8px 24px rgba(255,122,20,.28)}
+.engine-hero-action.business{border-color:rgba(255,255,255,.48);background:rgba(255,255,255,.08)}
+.engine-hero-action:focus-visible{outline:3px solid #22bdf2;outline-offset:4px}
+.engine-hero-actions .btn-ghost{grid-column:1/-1;justify-content:center}
+.engine-menu-enquiry{display:none}
 .workshop-frame{min-height:560px}
 .workshop-copy{padding:72px 0}
 #connected-system .system-feature{max-width:920px;margin-inline:auto}
@@ -29,13 +36,11 @@
 .engine-enquiry-completion{max-width:920px;margin:18px 0 0;padding:16px 18px;border:1px solid #83d7b0;border-radius:14px;background:#eefaf4;color:#176a43;font-size:.9rem;font-weight:750;line-height:1.55}
 .engine-enquiry-completion.warning{border-color:#efbf8a;background:#fff7ed;color:#8b4a0b}
 
-/* Fixed quick routes sit beneath the desktop quote action without obscuring the machine. */
-.engine-floating-actions{position:fixed;z-index:60;top:132px;right:max(24px,calc((100vw - 1260px)/2));display:grid;gap:12px}
-.engine-floating-action{position:relative;display:grid;place-items:center;width:52px;height:52px;border:1px solid rgba(255,255,255,.3);border-radius:15px;background:#062b49;color:#fff;box-shadow:0 14px 30px rgba(5,38,64,.28);touch-action:manipulation;transition:transform 160ms ease,border-color 160ms ease}
+/* Fixed quick routes remain explicit text actions on every viewport. */
+.engine-floating-actions{position:fixed;z-index:60;top:132px;right:max(24px,calc((100vw - 1260px)/2));display:grid;gap:10px;width:168px}
+.engine-floating-action{position:relative;display:flex;align-items:center;justify-content:center;min-height:48px;padding:12px 16px;border:1px solid rgba(255,255,255,.3);border-radius:14px;background:#062b49;color:#fff;box-shadow:0 14px 30px rgba(5,38,64,.28);font-size:.78rem;font-weight:900;line-height:1.2;text-align:center;white-space:nowrap;touch-action:manipulation;transition:transform 160ms ease,border-color 160ms ease,background-color 160ms ease}
 .engine-floating-action.service{background:#ff7a14;border-color:#ff7a14}
-.engine-floating-action svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .engine-floating-action:focus-visible{outline:3px solid #22bdf2;outline-offset:4px}
-.engine-floating-tooltip{position:absolute;right:64px;top:50%;width:max-content;transform:translateY(-50%);padding:8px 10px;border-radius:8px;background:#062b49;color:#fff;font-size:.72rem;font-weight:800;letter-spacing:.02em;opacity:0;pointer-events:none;transition:opacity 120ms ease}
 
 .engine-enquiry-dialog{width:min(920px,calc(100% - 28px));max-height:calc(100dvh - 32px);margin:auto;padding:0;border:0;border-radius:22px;background:#fff;color:#102e3c;box-shadow:0 34px 100px rgba(2,22,38,.38);overflow:hidden}
 .engine-enquiry-dialog::backdrop{background:rgba(2,20,34,.72);backdrop-filter:blur(5px)}
@@ -58,16 +63,21 @@
 .engine-console .engine-badge.three{right:18px;bottom:38px}
 @media(max-width:600px){.engine-console .engine-badge{max-width:46%;padding:8px 10px;font-size:.54rem}.engine-console .engine-badge.one{left:12px;bottom:72px}.engine-console .engine-badge.two{right:12px;top:94px}.engine-console .engine-badge.three{right:12px;bottom:42px}}
 @media(hover:hover) and (pointer:fine){
+  .engine-hero-action:hover{transform:translateY(-2px)}
+  .engine-hero-action.service:hover{box-shadow:0 12px 30px rgba(255,122,20,.4)}
+  .engine-hero-action.business:hover{border-color:#22bdf2;background:rgba(34,189,242,.12)}
   .engine-enquiry-launch:hover{transform:translateY(-3px);border-color:#22bdf2;box-shadow:0 20px 44px rgba(5,38,64,.12)}
   .engine-dialog-close:hover{border-color:#ff7a14;color:#ff7a14}
   .engine-floating-action:hover{transform:translateY(-2px);border-color:#22bdf2}
-  .engine-floating-action:hover .engine-floating-tooltip{opacity:1}
 }
 
 @media(max-width:900px){
   .section{padding:64px 0}
   .workshop-frame{min-height:520px}
   .engine-enquiry-choices{grid-template-columns:1fr}
+  .nav-links .engine-menu-enquiry{display:flex;width:100%;align-items:center;min-height:48px;padding:12px 14px;border:1px solid rgba(255,255,255,.16);border-radius:12px;color:#fff}
+  .nav-links .engine-menu-enquiry[data-enquiry-type="service"]{border-color:#ff7a14;background:#ff7a14}
+  .nav-links .engine-menu-enquiry[data-enquiry-type="machine"]{background:rgba(255,255,255,.07)}
 }
 @media(max-width:640px){
   .section{padding:54px 0}
@@ -78,10 +88,10 @@
   .engine-dialog-frame{max-height:100dvh}
   .engine-dialog-header{padding:18px 18px 16px}
   .engine-enquiry-dialog .enquiry-card{padding:20px 18px 26px}
-  .engine-floating-actions{top:auto;right:16px;bottom:18px;grid-auto-flow:column;gap:10px}
-  .engine-floating-action{width:48px;height:48px;border-radius:14px}
-  .engine-floating-tooltip{display:none}
+  .engine-floating-actions{top:auto;right:14px;bottom:16px;grid-template-columns:1fr 1fr;gap:8px;width:min(340px,calc(100vw - 28px))}
+  .engine-floating-action{min-height:52px;padding:12px 10px;border-radius:14px;font-size:.74rem}
 }
-@media(prefers-reduced-motion:reduce){.engine-enquiry-launch{transition:none}}
-@media(prefers-reduced-motion:reduce){.engine-floating-action,.engine-floating-tooltip{transition:none}}
-@media(prefers-reduced-motion:reduce) and (hover:hover) and (pointer:fine){.engine-enquiry-launch:hover,.engine-floating-action:hover{transform:none}}
+@media(max-width:420px){.engine-hero-action{min-height:56px;padding:14px 12px;font-size:.84rem}}
+@media(prefers-reduced-motion:reduce){.engine-enquiry-launch,.engine-hero-action{transition:none}}
+@media(prefers-reduced-motion:reduce){.engine-floating-action{transition:none}}
+@media(prefers-reduced-motion:reduce) and (hover:hover) and (pointer:fine){.engine-enquiry-launch:hover,.engine-hero-action:hover,.engine-floating-action:hover{transform:none}}

@@ -29,7 +29,7 @@ def engine_service(**changes):
             'vehicleType': 'Car', 'vehicleBrand': 'Tata', 'vehicleModel': 'Nexon', 'passingYear': '2022',
             'fuelType': 'Diesel', 'engineCc': '1497', 'kilometres': '45000', 'area': 'Baner',
             'serviceCity': 'Pune', 'servicePin': '411045', 'selectedCentre': 'chikalthana-midc',
-            'consent': True, 'whatsappConsent': True}
+            'consent': True}
     return data | changes
 
 
@@ -39,9 +39,19 @@ def test_consent_engine_pricing_and_retention(tmp_path):
     public_page = client.get('/engine-d-carb')
     assert b'Nothing is uploaded automatically' not in public_page.data
     assert b'engine-integration.js' in public_page.data
-    assert b'engine-integration.js?v=20260915-1' in public_page.data
+    assert b'engine-integration.js?v=20260917-2' in public_page.data
+    assert b"heroPrimary.textContent='Request a quotation" not in public_page.data
+    assert b'>Enquire<' not in public_page.data
     assert public_page.data.count(b'<details><summary>') == 7
     assert b'"@type": "FAQPage"' in public_page.data
+    assert b'Benefits of Engine Decarbonisation' in public_page.data
+    assert b'Smoother engine performance' in public_page.data
+    assert b'REDUCED ENGINE NOISE &amp; VIBRATION' in public_page.data
+    assert b'Generate Engine D-Carb report' in public_page.data
+    assert b'prints the customer' not in public_page.data
+    assert b'generates an emission report' in public_page.data
+    assert b'prints a dated emission report' not in public_page.data
+    assert b'change in Engine Performance' in public_page.data
     assert client.post('/api/engine-d-carb/quotations', json=engine_service(consent=False)).status_code == 400
     response = client.post('/api/engine-d-carb/quotations', json=engine_service())
     assert response.status_code == 200
@@ -160,7 +170,17 @@ def test_engine_click_to_chat_uses_business_number_and_no_api_placeholder(tmp_pa
     assert b'serviceEmailField.hidden = true' in script.data
     assert b"serviceEmailField?.classList.add('engine-service-email')" in script.data
     assert b"document.querySelector('#serviceFields .price-preview')?.remove()" in script.data
-    assert b'name="whatsappConsent"' in script.data
+    assert b'name="whatsappConsent"' not in script.data
+    assert b'for 24 months' not in script.data
+    assert b'promotional marketing' not in script.data
+    assert b'Meta accepted WhatsApp messages' not in script.data
+    assert b'WhatsApp message sent to admin and service centre head.' in script.data
+    assert b'WhatsApp message sent to admin.' in script.data
+    assert b'>D-Carb Now</span>' in script.data
+    assert b'>Business Enquiry</span>' in script.data
+    assert b'Vehicle D-Carb Form' in script.data
+    assert b'New Machine Enquiry Form' in script.data
+    assert b'<svg viewBox="0 0 24 24"' not in script.data
 
 
 def test_engine_whatsapp_sends_customer_and_selected_centre_templates(tmp_path, monkeypatch):
@@ -180,6 +200,7 @@ def test_engine_whatsapp_sends_customer_and_selected_centre_templates(tmp_path, 
     monkeypatch.setenv('WHATSAPP_ACCESS_TOKEN', 'private-test-token')
     monkeypatch.setenv('WHATSAPP_CUSTOMER_TEMPLATE', 'engine_dcarb_service_quote')
     monkeypatch.setenv('WHATSAPP_CENTRE_TEMPLATE', 'engine_dcarb_new_service_lead')
+    monkeypatch.setenv('WHATSAPP_ADMIN_TEMPLATE', 'engine_dcarb_new_service_lead')
     monkeypatch.setattr('app.portal.urllib.request.urlopen', post)
     app = make_app(tmp_path)
     app.config['WHATSAPP_ALLOW_TEST_DELIVERY'] = True
@@ -187,13 +208,58 @@ def test_engine_whatsapp_sends_customer_and_selected_centre_templates(tmp_path, 
 
     response = client.post('/api/engine-d-carb/quotations', json=engine_service())
     assert response.status_code == 200
-    assert [item['status'] for item in response.json['whatsapp_delivery']] == ['accepted', 'accepted']
-    assert [item['to'] for item in requests] == ['919876543210', '917727005151']
+    assert [item['status'] for item in response.json['whatsapp_delivery']] == ['accepted', 'accepted', 'accepted']
+    assert [item['to'] for item in requests] == ['919876543210', '917727005151', '919067671513']
     assert [item['template']['name'] for item in requests] == [
-        'engine_dcarb_service_quote', 'engine_dcarb_new_service_lead'
+        'engine_dcarb_service_quote', 'engine_dcarb_new_service_lead', 'engine_dcarb_new_service_lead'
     ]
+    admin_parameters = requests[2]['template']['components'][0]['parameters']
+    assert admin_parameters[0]['text'] == 'Engine Customer'
+    assert admin_parameters[1]['text'] == '9876543210'
+    assert 'Tata Nexon' in admin_parameters[2]['text']
+    assert admin_parameters[3]['text'] == '2058'
+    assert 'Chikalthana MIDC' in admin_parameters[4]['text']
+    assert 'Primary centre contact (7727005151)' in admin_parameters[4]['text']
     with app.app_context():
-        assert Delivery.query.filter_by(channel='whatsapp', status='accepted').count() == 2
+        assert Delivery.query.filter_by(channel='whatsapp', status='accepted').count() == 3
+
+
+def test_machine_enquiry_sends_customer_and_admin_whatsapp_templates(tmp_path, monkeypatch):
+    requests = []
+
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def read(self): return json.dumps({'messages': [{'id': f'wamid.machine{len(requests)}'}]}).encode()
+
+    def post(request, timeout=0):
+        requests.append(json.loads(request.data.decode('utf-8')))
+        return Response()
+
+    monkeypatch.setenv('WHATSAPP_PHONE_NUMBER_ID', '123456789')
+    monkeypatch.setenv('WHATSAPP_ACCESS_TOKEN', 'private-test-token')
+    monkeypatch.setenv('WHATSAPP_MACHINE_CUSTOMER_TEMPLATE', 'engine_dcarb_machine_enquiry_confirmation')
+    monkeypatch.setenv('WHATSAPP_MACHINE_ADMIN_TEMPLATE', 'engine_dcarb_admin_machine_lead')
+    monkeypatch.setattr('app.portal.urllib.request.urlopen', post)
+    app = make_app(tmp_path)
+    app.config['WHATSAPP_ALLOW_TEST_DELIVERY'] = True
+    client = app.test_client()
+
+    response = client.post('/api/engine-d-carb/quotations', json={
+        'enquiryType': 'machine', 'companyAddress': 'ABC Motors, Pune',
+        'machineEmail': 'owner@example.com', 'representativeName': 'Asha Patil',
+        'machinePhone': '9876543210', 'businessDetails': 'Automotive workshop for 8 years',
+        'machineCity': 'Pune', 'machinePin': '411001', 'machineDetails': 'Two service bays',
+        'consent': True,
+    })
+
+    assert response.status_code == 200
+    assert [item['recipient'] for item in response.json['whatsapp_delivery']] == ['customer', 'admin']
+    assert [item['to'] for item in requests] == ['919876543210', '919067671513']
+    assert [item['template']['name'] for item in requests] == [
+        'engine_dcarb_machine_enquiry_confirmation', 'engine_dcarb_admin_machine_lead'
+    ]
+    assert 'Asha Patil' in requests[1]['template']['components'][0]['parameters'][0]['text']
 
 
 def test_employee_empty_dropdowns_allow_manual_entry(tmp_path):
