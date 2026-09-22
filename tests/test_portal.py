@@ -8,7 +8,7 @@ from openpyxl import load_workbook
 from werkzeug.security import generate_password_hash
 
 from app import create_app, db
-from app.models import Delivery, EngineCentre, EngineCentreContact, Lead, Submission, User
+from app.models import Delivery, EngineCentre, EngineCentreContact, EngineWhatsAppAdmin, Lead, Submission, User
 
 os.environ['ADMIN_EMAIL'] = 'admin@test.local'
 os.environ['ADMIN_PASSWORD'] = 'TestPass123!'
@@ -157,6 +157,27 @@ def test_service_location_is_only_required_for_other_centre(tmp_path):
     assert 'Your requested service area is' in other.json['messages']['customer']
 
 
+def test_admin_sets_engine_whatsapp_recipient(tmp_path):
+    app = make_app(tmp_path)
+    client = app.test_client()
+    login(client, 'admin@test.local', 'TestPass123!')
+    page = client.get('/admin')
+    csrf = re.search(b'name="csrf" value="([^"]+)', page.data).group(1).decode()
+    assert b'Admin WhatsApp recipient' in page.data
+    assert b'value="9067671513"' in page.data
+
+    invalid = client.post('/admin/engine-whatsapp-admin', data={'csrf': csrf, 'phone': '123'})
+    assert 'engine_admin_error=' in invalid.headers['Location']
+    saved = client.post('/admin/engine-whatsapp-admin', data={
+        'csrf': csrf, 'phone': '99887 76655'
+    }, follow_redirects=True)
+    assert saved.status_code == 200
+    assert b'Admin WhatsApp number saved' in saved.data
+    assert b'value="9988776655"' in saved.data
+    with app.app_context():
+        assert db.session.get(EngineWhatsAppAdmin, 1).phone == '9988776655'
+
+
 def test_engine_click_to_chat_uses_business_number_and_no_api_placeholder(tmp_path):
     app = make_app(tmp_path)
     client = app.test_client()
@@ -241,6 +262,8 @@ def test_engine_whatsapp_sends_customer_and_selected_centre_templates(tmp_path, 
     assert admin_parameters[3]['text'] == '2058'
     assert 'Chikalthana MIDC' in admin_parameters[4]['text']
     assert 'Primary centre contact (7727005151)' in admin_parameters[4]['text']
+    assert 'Submitted:' in admin_parameters[4]['text']
+    assert 'IST' in admin_parameters[4]['text']
     with app.app_context():
         assert Delivery.query.filter_by(channel='whatsapp', status='accepted').count() == 3
 
@@ -281,6 +304,8 @@ def test_machine_enquiry_sends_customer_and_admin_whatsapp_templates(tmp_path, m
         'engine_dcarb_machine_enquiry_confirmation', 'engine_dcarb_admin_machine_lead'
     ]
     assert 'Asha Patil' in requests[1]['template']['components'][0]['parameters'][0]['text']
+    assert 'Submitted:' in requests[1]['template']['components'][0]['parameters'][0]['text']
+    assert 'IST' in requests[1]['template']['components'][0]['parameters'][0]['text']
 
 
 def test_employee_empty_dropdowns_allow_manual_entry(tmp_path):

@@ -5,7 +5,7 @@ from flask_login import login_user,logout_user,login_required,current_user
 from werkzeug.security import check_password_hash
 from werkzeug.utils import secure_filename
 from . import db
-from .models import User,Recipient,Lead,Upload,Delivery,BatteryFitment,BatteryProduct,EngineCentre
+from .models import User,Recipient,Lead,Upload,Delivery,BatteryFitment,BatteryProduct,EngineCentre,EngineWhatsAppAdmin
 from .services import ALLOWED_BRANDS,predict,public_result,extract_document,publish,load_data,load_form_schemas,validate_form,notify,norm,fitment_application
 bp=Blueprint('main',__name__)
 
@@ -121,6 +121,7 @@ def admin():
  submission_total=query.count(),site_totals={key:Submission.query.filter_by(site=key,consented=True).count() for key in SITES},
   employees=User.query.filter_by(is_admin=False).order_by(User.email).all(),recipients=Recipient.query.order_by(Recipient.id.desc()).all(),
   engine_centres=EngineCentre.query.order_by(EngineCentre.sort_order,EngineCentre.id).all(),
+  engine_whatsapp_admin=db.session.get(EngineWhatsAppAdmin,1),
   uploads=Upload.query.order_by(Upload.id.desc()).limit(20),records=len(load_data().get('records',[])))
 @bp.post('/admin/upload')
 @admin_required
@@ -153,3 +154,15 @@ def del_recipient(rid):
  r=db.session.get(Recipient,rid)
  if r:db.session.delete(r);db.session.commit()
  return redirect(url_for('main.admin'))
+@bp.post('/admin/engine-whatsapp-admin')
+@admin_required
+def save_engine_whatsapp_admin():
+ if not valid_csrf():return ('Invalid CSRF',400)
+ phone=re.sub(r'\D','',request.form.get('phone',''))
+ if not re.fullmatch(r'[0-9]{10}',phone):
+  return redirect(url_for('main.admin',engine_admin_error='Enter a valid 10-digit WhatsApp number.'))
+ admin=db.session.get(EngineWhatsAppAdmin,1)
+ if admin:admin.phone=phone
+ else:db.session.add(EngineWhatsAppAdmin(id=1,phone=phone))
+ db.session.commit()
+ return redirect(url_for('main.admin',engine_admin_saved='1'))

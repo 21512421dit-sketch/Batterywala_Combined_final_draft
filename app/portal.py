@@ -6,7 +6,7 @@ import re
 import smtplib
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from email.utils import formataddr
 from pathlib import Path
@@ -18,7 +18,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from werkzeug.security import generate_password_hash
 
 from . import db
-from .models import Delivery, EngineCentre, EngineCentreContact, Lead, Submission, User
+from .models import Delivery, EngineCentre, EngineCentreContact, EngineWhatsAppAdmin, Lead, Submission, User
 
 
 bp = Blueprint('portal', __name__)
@@ -129,6 +129,17 @@ def ensure_engine_centres():
     db.session.commit()
 
 
+def ensure_engine_whatsapp_admin():
+    if db.session.get(EngineWhatsAppAdmin, 1):
+        return
+    phone = re.sub(r'\D', '', os.getenv('ENGINE_DCARB_ADMIN_WHATSAPP_NUMBER') or '9067671513')
+    if len(phone) == 12 and phone.startswith('91'):
+        phone = phone[2:]
+    if re.fullmatch(r'[0-9]{10}', phone):
+        db.session.add(EngineWhatsAppAdmin(id=1, phone=phone))
+        db.session.commit()
+
+
 def centre_dict(centre, include_contacts=False):
     data = {'key': centre.key, 'name': centre.name, 'address': centre.address}
     if include_contacts:
@@ -157,7 +168,7 @@ def service_messages(form, result, centre):
         f"An estimated cost of ₹{result['indicative_cost']:,} is given to the customer for availing Engine D-Carb service.\n\n"
         "Kindly contact the customer and book the appointment."
     )
-    sender_number = normalize_whatsapp_number(os.getenv('ENGINE_DCARB_WHATSAPP_NUMBER') or '919607576029')
+    sender_number = normalize_whatsapp_number(os.getenv('ENGINE_DCARB_WHATSAPP_NUMBER') or '919607069191')
     return {'customer': customer, 'centre': owner, 'centre_numbers': numbers, 'sender_number': sender_number}
 
 
@@ -222,8 +233,15 @@ def send_whatsapp_template(target, template_name, parameters, recipient):
 
 
 def engine_admin_number():
+    configured = db.session.get(EngineWhatsAppAdmin, 1)
     return normalize_whatsapp_number(
-        os.getenv('ENGINE_DCARB_ADMIN_WHATSAPP_NUMBER') or '919067671513')
+        configured.phone if configured else os.getenv('ENGINE_DCARB_ADMIN_WHATSAPP_NUMBER') or '919067671513')
+
+
+def india_submission_time():
+    current = datetime.now(timezone(timedelta(hours=5, minutes=30)))
+    hour = current.strftime('%I').lstrip('0') or '0'
+    return f"{current.day} {current.strftime('%b %Y')}, {hour}:{current.strftime('%M %p')} IST"
 
 
 def machine_admin_details(form):
@@ -234,7 +252,8 @@ def machine_admin_details(form):
         f"Company & address: {form['companyAddress']}; "
         f"Business details: {form['businessDetails']}; "
         f"Location: {form['machineCity']} — {form['machinePin']}; "
-        f"Other details: {form.get('machineDetails') or 'Not provided'}"
+        f"Other details: {form.get('machineDetails') or 'Not provided'}; "
+        f"Submitted: {india_submission_time()}"
     )
 
 
@@ -283,7 +302,8 @@ def send_engine_whatsapp(form, result, centre=None):
     )
     centre_details = (
         f"{result['centre']['name']} — {result['centre']['address']}; "
-        f"Centre head handling: {centre_heads}"
+        f"Centre head handling: {centre_heads}; "
+        f"Submitted: {india_submission_time()}"
     )
     deliveries.append(send_whatsapp_template(
         engine_admin_number(), admin_template,
@@ -548,7 +568,7 @@ def engine_quotation():
         return jsonify(error='Enter a valid email address to receive the quotation.'), 400
     result['whatsapp_delivery'] = send_engine_whatsapp(form, result, centre if kind == 'service' else None)
     result['business_whatsapp_number'] = normalize_whatsapp_number(
-        os.getenv('ENGINE_DCARB_WHATSAPP_NUMBER') or '919607576029')
+        os.getenv('ENGINE_DCARB_WHATSAPP_NUMBER') or '919607069191')
     normalized = dict(form, name=name, phone=phone, email=email)
     submission = record_submission('engine_dcarb', kind, normalized, result, consented=True)
     db.session.flush()

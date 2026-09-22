@@ -28,6 +28,8 @@ def create_app(test_config=None):
   from .portal import purge_expired_submissions
   from .portal import ensure_engine_centres
   ensure_engine_centres()
+  from .portal import ensure_engine_whatsapp_admin
+  ensure_engine_whatsapp_admin()
   purge_expired_submissions()
  return app
 

@@ -49,6 +49,10 @@ class EngineCentreContact(db.Model):
  phone=db.Column(db.String(10),nullable=False)
  centre=db.relationship('EngineCentre',back_populates='contacts')
  __table_args__=(db.UniqueConstraint('centre_id','phone',name='uq_engine_centre_phone'),)
+class EngineWhatsAppAdmin(db.Model):
+ id=db.Column(db.Integer,primary_key=True)
+ phone=db.Column(db.String(10),nullable=False)
+ updated_at=db.Column(db.DateTime,nullable=False,default=lambda:datetime.now(timezone.utc),onupdate=lambda:datetime.now(timezone.utc))
 class BatteryFitment(db.Model):
  id=db.Column(db.Integer,primary_key=True)
  application=db.Column(db.String(40),nullable=False,index=True)

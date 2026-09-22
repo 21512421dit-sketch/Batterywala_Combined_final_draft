@@ -14,7 +14,11 @@ def restrict_to_engine_dcarb():
         return engine_site_response()
     if path in {'/engine-d-carb', '/privacy', '/data-deletion'}:
         return None
-    if path in {'/api/engine-d-carb/centres', '/api/engine-d-carb/quotations'}:
+    if path in {
+        '/api/engine-d-carb/centres',
+        '/api/engine-d-carb/quotations',
+        '/api/whatsapp/webhook',
+    }:
         return None
     if path.startswith('/static/engine-') or path == '/static/images/batterywala-logo-original.png':
         return None
