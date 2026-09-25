@@ -15,6 +15,7 @@ __pycache__/
 .env
 instance/
 output/
+deploy/
 *.log
 *.db
 *.sqlite
