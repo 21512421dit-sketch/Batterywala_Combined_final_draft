@@ -145,6 +145,34 @@
       </div>
       <div class="engine-review-dots" aria-label="Choose customer review"></div>
     </div>`;
+  const proofSection = document.createElement('section');
+  proofSection.className = 'engine-proof section';
+  proofSection.setAttribute('aria-labelledby', 'engineProofTitle');
+  proofSection.innerHTML = `
+    <div class="shell">
+      <div class="engine-proof-head">
+        <span class="eyebrow">Proven results</span>
+        <h2 id="engineProofTitle">Trusted by drivers. Built for cleaner engines.</h2>
+      </div>
+      <div class="engine-proof-grid">
+        <article class="engine-proof-card">
+          <span class="engine-proof-icon" aria-hidden="true">&#9733;</span>
+          <strong>4+</strong>
+          <span>Years of experience</span>
+        </article>
+        <article class="engine-proof-card">
+          <span class="engine-proof-icon" aria-hidden="true">&#9881;</span>
+          <strong>1,200</strong>
+          <span>Vehicles decarbonised every year</span>
+        </article>
+        <article class="engine-proof-card">
+          <span class="engine-proof-icon google" aria-hidden="true">G</span>
+          <strong>5.0 <span class="engine-proof-stars" aria-label="Five out of five stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span></strong>
+          <span>Five-star rating on Google</span>
+        </article>
+      </div>
+    </div>`;
+  enquirySection?.before(proofSection);
   enquirySection?.before(reviewsSection);
 
   const reviewViewport = reviewsSection.querySelector('.engine-review-viewport');
