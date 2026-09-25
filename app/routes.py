@@ -1,8 +1,9 @@
-import json,hashlib,os,re,tempfile
+import json,hashlib,hmac,os,re,secrets,smtplib,tempfile,time
 from pathlib import Path
-from flask import Blueprint,render_template,request,jsonify,redirect,url_for,flash,session,Response
+from email.message import EmailMessage
+from flask import Blueprint,render_template,request,jsonify,redirect,url_for,flash,session,Response,current_app
 from flask_login import login_user,logout_user,login_required,current_user
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash,generate_password_hash
 from werkzeug.utils import secure_filename
 from . import db
 from .models import User,Recipient,Lead,Upload,Delivery,BatteryFitment,BatteryProduct,EngineCentre,EngineWhatsAppAdmin
@@ -13,7 +14,7 @@ bp=Blueprint('main',__name__)
 @bp.get('/data-deletion')
 def engine_privacy_pages():
  return render_template('engine_privacy.html', deletion=request.path == '/data-deletion',
-                        contact_email=os.getenv('ENGINE_DCARB_EMAIL') or 'engine.dcarb@gmail.com')
+                        contact_email='enquiry@enginedcarb.com')
 def csrf():
  import secrets
  if 'csrf' not in session:session['csrf']=secrets.token_urlsafe(24)
@@ -110,18 +111,96 @@ def login():
 @login_required
 def logout():
  if not valid_csrf():return ('Invalid CSRF',400)
+ session.pop('password_code',None)
  logout_user();return redirect(url_for('main.login'))
+
+def password_code_digest(user_id, code):
+ key=str(current_app.secret_key).encode()
+ return hmac.new(key,f'{user_id}:{code}'.encode(),hashlib.sha256).hexdigest()
+
+@bp.route('/account/password',methods=['GET','POST'])
+@login_required
+def change_password():
+ if request.method=='GET':return render_template('change_password.html')
+ if not valid_csrf():return ('Invalid CSRF',400)
+ action=request.form.get('action')
+ current=request.form.get('current_password','')
+ if not check_password_hash(current_user.password_hash,current):
+  flash('Current password is incorrect.','error')
+  return redirect(url_for('main.change_password'))
+ if action=='send_code':
+  previous=session.get('password_code') or {}
+  if previous.get('user_id')==current_user.id and time.time()-previous.get('sent_at',0)<60:
+   flash('Please wait one minute before requesting another code.','error')
+   return redirect(url_for('main.change_password'))
+  if not os.getenv('SMTP_HOST') or not (os.getenv('SMTP_FROM') or os.getenv('SMTP_USERNAME')):
+   flash('Email delivery is unavailable. Contact your administrator.','error')
+   return redirect(url_for('main.change_password'))
+  code=f'{secrets.randbelow(100000000):08d}'
+  message=EmailMessage()
+  message['Subject']='Your operations portal password code'
+  message['From']=os.getenv('SMTP_FROM') or os.getenv('SMTP_USERNAME')
+  message['To']=current_user.email
+  message.set_content(f'Your password change code is {code}. It expires in 10 minutes. If you did not request this, ignore this email.')
+  try:
+   with smtplib.SMTP(os.environ['SMTP_HOST'],int(os.getenv('SMTP_PORT','587')),timeout=15) as smtp:
+    if os.getenv('SMTP_USE_TLS','true').lower()=='true':smtp.starttls()
+    if os.getenv('SMTP_USERNAME'):smtp.login(os.environ['SMTP_USERNAME'],os.getenv('SMTP_PASSWORD'))
+    smtp.send_message(message)
+  except Exception:
+   flash('Could not send the code. Please try again later.','error')
+   return redirect(url_for('main.change_password'))
+  session['password_code']={'user_id':current_user.id,'digest':password_code_digest(current_user.id,code),
+                            'sent_at':time.time(),'expires_at':time.time()+600,'attempts':0}
+  flash('A code was sent to your account email.','ok')
+ elif action=='change':
+  saved=session.get('password_code') or {}
+  code=request.form.get('code','').strip()
+  new=request.form.get('new_password','')
+  if saved.get('user_id')!=current_user.id or saved.get('expires_at',0)<time.time() or saved.get('attempts',0)>=5:
+   session.pop('password_code',None)
+   flash('Request a new code to continue.','error')
+  elif not re.fullmatch(r'[0-9]{8}',code) or not hmac.compare_digest(saved['digest'],password_code_digest(current_user.id,code)):
+   saved['attempts']+=1
+   session['password_code']=saved
+   flash('The code is incorrect.','error')
+  elif len(new)<12 or len(new)>128 or new!=request.form.get('confirm_password'):
+   flash('Use a matching new password of 12 to 128 characters.','error')
+  elif check_password_hash(current_user.password_hash,new):
+   flash('Choose a different password.','error')
+  else:
+   current_user.password_hash=generate_password_hash(new)
+   db.session.commit()
+   session.pop('password_code',None)
+   flash('Password changed successfully.','ok')
+ else:flash('Choose a valid action.','error')
+ return redirect(url_for('main.change_password'))
 @bp.get('/admin')
 @admin_required
 def admin():
  from .models import Submission
+ from sqlalchemy import or_
  from .portal import SITES,filtered_submissions,purge_expired_submissions,submission_dict
+ from .engine_templates import template_settings
  purge_expired_submissions();site,query=filtered_submissions(request.args)
+ centre_query=EngineCentre.query
+ city=request.args.get('centre_city','').strip()
+ state=request.args.get('centre_state','').strip()
+ search=request.args.get('centre_search','').strip()[:120]
+ if city:centre_query=centre_query.filter(EngineCentre.city==city)
+ if state:centre_query=centre_query.filter(EngineCentre.state==state)
+ if search:
+  pattern=f'%{search}%'
+  centre_query=centre_query.filter(or_(EngineCentre.name.ilike(pattern),EngineCentre.address.ilike(pattern),
+                                       EngineCentre.city.ilike(pattern),EngineCentre.state.ilike(pattern)))
  return render_template('admin.html',site=site,sites=SITES,submissions=[submission_dict(item) for item in query.limit(100).all()],
  submission_total=query.count(),site_totals={key:Submission.query.filter_by(site=key,consented=True).count() for key in SITES},
   employees=User.query.filter_by(is_admin=False).order_by(User.email).all(),recipients=Recipient.query.order_by(Recipient.id.desc()).all(),
-  engine_centres=EngineCentre.query.order_by(EngineCentre.sort_order,EngineCentre.id).all(),
+  engine_centres=centre_query.order_by(EngineCentre.sort_order,EngineCentre.id).all(),
+  centre_cities=[row[0] for row in db.session.query(EngineCentre.city).distinct().order_by(EngineCentre.city) if row[0]],
+  centre_states=[row[0] for row in db.session.query(EngineCentre.state).distinct().order_by(EngineCentre.state) if row[0]],
   engine_whatsapp_admin=db.session.get(EngineWhatsAppAdmin,1),
+  engine_templates=template_settings(),
   uploads=Upload.query.order_by(Upload.id.desc()).limit(20),records=len(load_data().get('records',[])))
 @bp.post('/admin/upload')
 @admin_required
@@ -166,3 +245,17 @@ def save_engine_whatsapp_admin():
  else:db.session.add(EngineWhatsAppAdmin(id=1,phone=phone))
  db.session.commit()
  return redirect(url_for('main.admin',engine_admin_saved='1'))
+
+@bp.post('/admin/engine-whatsapp-templates/<key>')
+@admin_required
+def save_engine_whatsapp_template(key):
+ if not valid_csrf():return ('Invalid CSRF',400)
+ from .engine_templates import save_template
+ try:
+  save_template(key,request.form.get('template_name','').strip(),
+                [value.strip() for value in request.form.getlist('parameter_format')])
+ except ValueError as error:
+  flash(str(error),'error')
+  return redirect(url_for('main.admin',_anchor='engine-templates'))
+ flash('WhatsApp template settings saved. New enquiries will use them.','ok')
+ return redirect(url_for('main.admin',_anchor='engine-templates'))

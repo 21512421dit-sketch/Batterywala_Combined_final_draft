@@ -1,0 +1,57 @@
+<section class="portal-card" id="engine-centres">
+  <div class="section-heading"><div><p class="kicker">Engine D-Carb</p><h2>Service centres</h2></div><span>{{engine_centres|length}} shown</span></div>
+  <p class="section-copy">Centre details appear in the public and employee forms and in future WhatsApp messages. Add WhatsApp contacts for each centre below.</p>
+  {% if request.args.get('centre_created') %}<p class="status success" role="status">Centre added.</p>{% endif %}
+  {% if request.args.get('centre_updated') %}<p class="status success" role="status">Centre details saved.</p>{% endif %}
+  {% if request.args.get('centre_added') %}<p class="status success" role="status">Centre contact added.</p>{% endif %}
+  {% if request.args.get('centre_deleted') %}<p class="status success" role="status">Centre contact removed.</p>{% endif %}
+  {% if request.args.get('centre_error') %}<p class="status error" role="alert">{{request.args.get('centre_error')}}</p>{% endif %}
+  <form class="centre-filter" method="get" action="/admin#engine-centres">
+    <input type="hidden" name="site" value="engine_dcarb">
+    <label>Search<input type="search" name="centre_search" value="{{request.args.get('centre_search','')}}" placeholder="Name or address"></label>
+    <label>City<select name="centre_city"><option value="">All cities</option>{% for city in centre_cities %}<option value="{{city}}" {{'selected' if request.args.get('centre_city')==city}}>{{city}}</option>{% endfor %}</select></label>
+    <label>State<select name="centre_state"><option value="">All states</option>{% for state in centre_states %}<option value="{{state}}" {{'selected' if request.args.get('centre_state')==state}}>{{state}}</option>{% endfor %}</select></label>
+    <button class="button secondary" type="submit">Find centres</button>
+  </form>
+  <details class="centre-create"><summary>Add new centre</summary>
+    <form class="centre-detail-form" method="post" action="/admin/engine-centres">
+      <input type="hidden" name="csrf" value="{{csrf_token}}">
+      <label>Centre name<input name="name" maxlength="120" required></label>
+      <label>City<input name="city" maxlength="120" required></label>
+      <label>State<input name="state" maxlength="120" required></label>
+      <label class="wide">Full address<textarea name="address" maxlength="500" required></textarea></label>
+      <button class="button" type="submit">Add centre</button>
+    </form>
+  </details>
+  <div class="centre-admin-grid">
+    {% for centre in engine_centres %}
+    <article class="centre-admin-card">
+      <div class="centre-admin-heading"><div><h3>{{centre.name}}</h3><p>{{centre.address}}</p><p>{{centre.city}}, {{centre.state}}</p></div><span>{{centre.contacts|length}} {{'number' if centre.contacts|length == 1 else 'numbers'}}</span></div>
+      <details class="centre-edit"><summary>Edit centre details</summary>
+        <form class="centre-detail-form" method="post" action="/admin/engine-centres/{{centre.id}}/edit">
+          <input type="hidden" name="csrf" value="{{csrf_token}}">
+          <label>Centre name<input name="name" maxlength="120" value="{{centre.name}}" required></label>
+          <label>City<input name="city" maxlength="120" value="{{centre.city}}" required></label>
+          <label>State<input name="state" maxlength="120" value="{{centre.state}}" required></label>
+          <label class="wide">Full address<textarea name="address" maxlength="500" required>{{centre.address}}</textarea></label>
+          <button class="button" type="submit">Save centre</button>
+        </form>
+      </details>
+      <form class="centre-contact-form" method="post" action="/admin/engine-centres/{{centre.id}}/contacts">
+        <input type="hidden" name="csrf" value="{{csrf_token}}">
+        <label>Contact name<input name="contact_name" maxlength="120" placeholder="e.g. Centre owner" required></label>
+        <label>WhatsApp number<input name="phone" type="tel" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" placeholder="10-digit number" required></label>
+        <button class="button" type="submit">Add number</button>
+      </form>
+      <div class="centre-contact-list">
+        {% for contact in centre.contacts %}
+        <div class="centre-contact-item"><span><strong>{{contact.contact_name}}</strong><small>{{contact.phone}}</small></span>
+          <details><summary>Edit</summary><form class="centre-contact-edit" method="post" action="/admin/engine-centre-contacts/{{contact.id}}/edit"><input type="hidden" name="csrf" value="{{csrf_token}}"><label>Name<input name="contact_name" value="{{contact.contact_name}}" maxlength="120" required></label><label>Number<input name="phone" type="tel" value="{{contact.phone}}" pattern="[0-9]{10}" maxlength="10" required></label><button class="button secondary" type="submit">Save</button></form></details>
+          <form method="post" action="/admin/engine-centre-contacts/{{contact.id}}/delete"><input type="hidden" name="csrf" value="{{csrf_token}}"><button class="text-button danger" type="submit">Remove</button></form>
+        </div>
+        {% else %}<p>No WhatsApp recipients configured for this centre.</p>{% endfor %}
+      </div>
+    </article>
+    {% else %}<p>No centres match these filters.</p>{% endfor %}
+  </div>
+</section>

@@ -18,3 +18,4 @@
 2026-09-17 | kept | The Google review carousel shows two cards on desktop and one on mobile so its previous and next controls always have a real destination instead of appearing disabled while all reviews are already visible.
 2026-09-17 | rejected | A limited three-review carousel that stops at either end does not match BatteryWala's continuous customer-feedback pattern.
 2026-09-17 | kept | Engine D-Carb rotates 12 featured public Google reviews every 5.2 seconds, wraps continuously, shows three, two, or one card by viewport, pauses for hover and keyboard focus, and respects reduced-motion preferences.
+2026-09-21 | pending-review | The operations portal adds one compact D-Carb admin-recipient setting, visibly separated from centre-head recipients, while preserving the established navy/orange operational interface.

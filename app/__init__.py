@@ -24,7 +24,7 @@ def create_app(test_config=None):
  from .whatsapp_webhook import bp as whatsapp_webhook_bp
  app.register_blueprint(whatsapp_webhook_bp)
  with app.app_context():
-  db.create_all(); ensure_admin(app); ensure_battery_catalog(force=True)
+  db.create_all(); migrate_portal_schema(); ensure_admin(app); ensure_battery_catalog(force=True)
   from .portal import purge_expired_submissions
   from .portal import ensure_engine_centres
   ensure_engine_centres()
@@ -32,6 +32,19 @@ def create_app(test_config=None):
   ensure_engine_whatsapp_admin()
   purge_expired_submissions()
  return app
+
+def migrate_portal_schema():
+ from sqlalchemy import inspect, text
+ if 'engine_centre' not in inspect(db.engine).get_table_names():return
+ columns={item['name'] for item in inspect(db.engine).get_columns('engine_centre')}
+ for name in ('city','state'):
+  if name not in columns:
+   db.session.execute(text(f"ALTER TABLE engine_centre ADD COLUMN {name} VARCHAR(120) NOT NULL DEFAULT ''"))
+ if 'delivery' in inspect(db.engine).get_table_names():
+  delivery_columns={item['name'] for item in inspect(db.engine).get_columns('delivery')}
+  if 'submission_id' not in delivery_columns:
+   db.session.execute(text('ALTER TABLE delivery ADD COLUMN submission_id INTEGER'))
+ db.session.commit()
 
 def ensure_admin(app):
  from .models import User

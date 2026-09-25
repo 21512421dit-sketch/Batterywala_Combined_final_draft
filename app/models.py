@@ -25,7 +25,7 @@ class Submission(db.Model):
 class Upload(db.Model):
  id=db.Column(db.Integer,primary_key=True); filename=db.Column(db.String(255)); sha256=db.Column(db.String(64)); record_count=db.Column(db.Integer); status=db.Column(db.String(30)); created_at=db.Column(db.DateTime,default=lambda:datetime.now(timezone.utc))
 class Delivery(db.Model):
- id=db.Column(db.Integer,primary_key=True); lead_id=db.Column(db.Integer); channel=db.Column(db.String(20)); target=db.Column(db.String(255)); status=db.Column(db.String(30)); detail=db.Column(db.Text); created_at=db.Column(db.DateTime,default=lambda:datetime.now(timezone.utc))
+ id=db.Column(db.Integer,primary_key=True); lead_id=db.Column(db.Integer); submission_id=db.Column(db.Integer,db.ForeignKey('submission.id'),index=True); channel=db.Column(db.String(20)); target=db.Column(db.String(255)); status=db.Column(db.String(30)); detail=db.Column(db.Text); created_at=db.Column(db.DateTime,default=lambda:datetime.now(timezone.utc))
 class WhatsAppMessage(db.Model):
  message_id=db.Column(db.String(255),primary_key=True)
  delivery_id=db.Column(db.Integer,db.ForeignKey('delivery.id'),index=True)
@@ -40,6 +40,8 @@ class EngineCentre(db.Model):
  key=db.Column(db.String(40),unique=True,nullable=False,index=True)
  name=db.Column(db.String(120),nullable=False)
  address=db.Column(db.String(500),nullable=False)
+ city=db.Column(db.String(120),nullable=False,default='')
+ state=db.Column(db.String(120),nullable=False,default='')
  sort_order=db.Column(db.Integer,nullable=False,default=0)
  contacts=db.relationship('EngineCentreContact',back_populates='centre',cascade='all, delete-orphan',order_by='EngineCentreContact.id')
 class EngineCentreContact(db.Model):
@@ -52,6 +54,11 @@ class EngineCentreContact(db.Model):
 class EngineWhatsAppAdmin(db.Model):
  id=db.Column(db.Integer,primary_key=True)
  phone=db.Column(db.String(10),nullable=False)
+ updated_at=db.Column(db.DateTime,nullable=False,default=lambda:datetime.now(timezone.utc),onupdate=lambda:datetime.now(timezone.utc))
+class EngineWhatsAppTemplate(db.Model):
+ key=db.Column(db.String(40),primary_key=True)
+ template_name=db.Column(db.String(120),nullable=False)
+ parameter_formats_json=db.Column(db.Text,nullable=False)
  updated_at=db.Column(db.DateTime,nullable=False,default=lambda:datetime.now(timezone.utc),onupdate=lambda:datetime.now(timezone.utc))
 class BatteryFitment(db.Model):
  id=db.Column(db.Integer,primary_key=True)

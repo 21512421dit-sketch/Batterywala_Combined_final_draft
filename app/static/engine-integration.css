@@ -75,13 +75,17 @@
 .engine-review-dots{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;min-height:9px;margin-top:22px}
 .engine-review-dots button{width:9px;height:9px;padding:0;border:0;border-radius:999px;background:#adc3d0;cursor:pointer;transition:background-color 160ms ease}
 .engine-review-dots button.active{width:24px;background:#ff7a14}
-/* Restore the original icon-only quick actions. */
+/* Keep the quick-action labels visible at every input size. */
 .engine-floating-actions{position:fixed;z-index:60;top:132px;right:max(24px,calc((100vw - 1260px)/2));display:grid;gap:10px}
 .engine-floating-action{position:relative;display:grid;place-items:center;width:54px;height:54px;border:1px solid rgba(255,255,255,.3);border-radius:16px;background:#062b49;color:#fff;box-shadow:0 14px 30px rgba(5,38,64,.28);touch-action:manipulation;transition:transform 160ms ease,border-color 160ms ease,background-color 160ms ease}
 .engine-floating-action.service{background:#ff7a14;border-color:#ff7a14}
 .engine-floating-action svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.engine-floating-tooltip{position:absolute;right:66px;top:50%;padding:8px 11px;border-radius:9px;background:#062b49;color:#fff;font-size:.7rem;font-weight:800;line-height:1;white-space:nowrap;opacity:0;pointer-events:none;transform:translate(5px,-50%);transition:opacity 140ms ease,transform 140ms ease}
+.engine-floating-tooltip{position:absolute;right:66px;top:50%;padding:8px 11px;border-radius:9px;background:#062b49;color:#fff;font-size:.7rem;font-weight:800;line-height:1;white-space:nowrap;opacity:1;pointer-events:none;transform:translateY(-50%)}
 .engine-floating-action:focus-visible{outline:3px solid #22bdf2;outline-offset:4px}
+.vehicles-grid .vehicle .icon svg{width:34px;height:34px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;transition:transform 220ms cubic-bezier(.23,1,.32,1)}
+.vehicles-grid .vehicle:hover .icon svg{transform:translateY(-2px)}
+.contact-card .contact-item a{font-weight:800;text-decoration:underline;text-decoration-color:rgba(255,255,255,.35);text-underline-offset:3px;overflow-wrap:anywhere}
+.contact-card .contact-item a:focus-visible{outline:3px solid #22bdf2;outline-offset:3px}
 
 .engine-enquiry-dialog{width:min(920px,calc(100% - 28px));max-height:calc(100dvh - 32px);margin:auto;padding:0;border:0;border-radius:22px;background:#fff;color:#102e3c;box-shadow:0 34px 100px rgba(2,22,38,.38);overflow:hidden}
 .engine-enquiry-dialog::backdrop{background:rgba(2,20,34,.72);backdrop-filter:blur(5px)}
@@ -110,7 +114,6 @@
   .engine-enquiry-launch:hover{transform:translateY(-3px);border-color:#22bdf2;box-shadow:0 20px 44px rgba(5,38,64,.12)}
   .engine-dialog-close:hover{border-color:#ff7a14;color:#ff7a14}
   .engine-floating-action:hover{transform:translateY(-2px);border-color:#22bdf2}
-  .engine-floating-action:hover .engine-floating-tooltip,.engine-floating-action:focus-visible .engine-floating-tooltip{opacity:1;transform:translate(0,-50%)}
   .engine-social-links a:hover{transform:translateY(-2px);border-color:#22bdf2;background:rgba(34,189,242,.12)}
   .engine-google-summary:hover{transform:translateY(-2px);border-color:#ff7a14;box-shadow:0 16px 34px rgba(5,38,64,.12)}
   .engine-review-arrow:hover{border-color:#ff7a14;background:#ff7a14;color:#fff}
@@ -145,10 +148,10 @@
   .engine-review-slider{grid-template-columns:40px minmax(0,1fr) 40px;gap:9px}
   .engine-review-arrow{width:40px;height:40px}
   .engine-review-card{flex-basis:100%;min-height:228px;padding:21px}
-  .engine-floating-actions{top:auto;right:14px;bottom:16px;grid-auto-flow:column;gap:9px}
+  .engine-floating-actions{top:auto;right:14px;bottom:16px;grid-auto-flow:row;gap:9px}
   .engine-floating-action{width:50px;height:50px;border-radius:15px}
-  .engine-floating-tooltip{display:none}
+  .engine-floating-tooltip{display:block;right:60px}
 }
 @media(max-width:420px){.engine-hero-action{min-height:56px;padding:14px 12px;font-size:.84rem}}
-@media(prefers-reduced-motion:reduce){.engine-enquiry-launch,.engine-hero-action,.engine-floating-action,.engine-floating-tooltip,.engine-social-links a,.engine-google-summary,.engine-review-track,.engine-review-arrow,.engine-review-dots button{transition:none}}
+@media(prefers-reduced-motion:reduce){.engine-enquiry-launch,.engine-hero-action,.engine-floating-action,.engine-floating-tooltip,.engine-social-links a,.engine-google-summary,.engine-review-track,.engine-review-arrow,.engine-review-dots button,.vehicles-grid .vehicle .icon svg{transition:none}}
 @media(prefers-reduced-motion:reduce) and (hover:hover) and (pointer:fine){.engine-enquiry-launch:hover,.engine-hero-action:hover,.engine-floating-action:hover,.engine-google-summary:hover{transform:none}}

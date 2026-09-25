@@ -39,7 +39,7 @@ def test_consent_engine_pricing_and_retention(tmp_path):
     public_page = client.get('/engine-d-carb')
     assert b'Nothing is uploaded automatically' not in public_page.data
     assert b'engine-integration.js' in public_page.data
-    assert b'engine-integration.js?v=20260917-9' in public_page.data
+    assert b'engine-integration.js?v=20260924-3' in public_page.data
     assert b"heroPrimary.textContent='Request a quotation" not in public_page.data
     assert b'>Enquire<' not in public_page.data
     assert public_page.data.count(b'<details><summary>') == 7
@@ -198,9 +198,9 @@ def test_engine_click_to_chat_uses_business_number_and_no_api_placeholder(tmp_pa
     assert b'WhatsApp message sent to admin and service centre head.' in script.data
     assert b'WhatsApp message sent to admin.' in script.data
     assert b'class="engine-floating-tooltip">D-Carb Now</span>' in script.data
-    assert b'class="engine-floating-tooltip">Business Enquiry</span>' in script.data
-    assert b'Vehicle D-Carb Form' in script.data
-    assert b'New Machine Enquiry Form' in script.data
+    assert b'class="engine-floating-tooltip">Start a D-Carb Centre</span>' in script.data
+    assert b'Engine D-Carb Form' in script.data
+    assert b'Start Your Own D-Carb Centre' in script.data
     assert b'<svg viewBox="0 0 24 24"' in script.data
     assert b'Check Customer Reviews' not in script.data
     assert b'<summary>Follow Us</summary>' in script.data
@@ -234,6 +234,8 @@ def test_engine_whatsapp_sends_customer_and_selected_centre_templates(tmp_path, 
         def read(self): return json.dumps({'messages': [{'id': f'wamid.test{len(requests)}'}]}).encode()
 
     def post(request, timeout=0):
+        if request.data is None:
+            return Response()
         requests.append(json.loads(request.data.decode('utf-8')))
         assert request.headers['Authorization'] == 'Bearer private-test-token'
         return Response()
@@ -255,17 +257,107 @@ def test_engine_whatsapp_sends_customer_and_selected_centre_templates(tmp_path, 
     assert [item['template']['name'] for item in requests] == [
         'engine_dcarb_service_quote', 'engine_dcarb_new_service_lead', 'engine_dcarb_new_service_lead'
     ]
+    customer_centre = requests[0]['template']['components'][0]['parameters'][3]['text']
+    assert 'Chikalthana MIDC | Address: Care4Earth Enterprises' in customer_centre
+    assert 'Contact: 7727005151' in customer_centre
+    centre_parameters = requests[1]['template']['components'][0]['parameters']
+    assert 'Submitted:' in centre_parameters[4]['text']
+    assert centre_parameters[4]['text'].endswith('IST')
     admin_parameters = requests[2]['template']['components'][0]['parameters']
     assert admin_parameters[0]['text'] == 'Engine Customer'
     assert admin_parameters[1]['text'] == '9876543210'
     assert 'Tata Nexon' in admin_parameters[2]['text']
+    assert ' | Kilometres: 45,000 km | Other details: Not provided' in admin_parameters[2]['text']
     assert admin_parameters[3]['text'] == '2058'
     assert 'Chikalthana MIDC' in admin_parameters[4]['text']
+    assert ' | Address: Care4Earth Enterprises' in admin_parameters[4]['text']
     assert 'Primary centre contact (7727005151)' in admin_parameters[4]['text']
     assert 'Submitted:' in admin_parameters[4]['text']
     assert 'IST' in admin_parameters[4]['text']
     with app.app_context():
         assert Delivery.query.filter_by(channel='whatsapp', status='accepted').count() == 3
+
+
+def test_service_centre_head_who_is_admin_receives_only_detailed_alert(tmp_path, monkeypatch):
+    requests = []
+
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def read(self): return json.dumps({'messages': [{'id': f'wamid.test{len(requests)}'}]}).encode()
+
+    def post(request, timeout=0):
+        if request.data is None:
+            return Response()
+        requests.append(json.loads(request.data.decode('utf-8')))
+        return Response()
+
+    monkeypatch.setenv('WHATSAPP_PHONE_NUMBER_ID', '123456789')
+    monkeypatch.setenv('WHATSAPP_ACCESS_TOKEN', 'private-test-token')
+    monkeypatch.setattr('app.portal.urllib.request.urlopen', post)
+    app = make_app(tmp_path)
+    app.config['WHATSAPP_ALLOW_TEST_DELIVERY'] = True
+    with app.app_context():
+        centre = EngineCentre.query.filter_by(key='chikalthana-midc').one()
+        centre.contacts[0].phone = '7743863504'
+        db.session.get(EngineWhatsAppAdmin, 1).phone = '7743863504'
+        db.session.commit()
+
+    response = app.test_client().post('/api/engine-d-carb/quotations', json=engine_service())
+
+    assert response.status_code == 200
+    assert [item['recipient'] for item in response.json['whatsapp_delivery']] == ['customer', 'admin']
+    assert [item['to'] for item in requests] == ['919876543210', '917743863504']
+    assert [item['template']['name'] for item in requests] == [
+        'engine_dcarb_service_quote', 'engine_dcarb_new_service_lead'
+    ]
+    details = requests[1]['template']['components'][0]['parameters'][4]['text']
+    assert 'Address: Care4Earth Enterprises' in details
+    assert 'Centre head:' in details
+    assert '7743863504' in details
+
+
+def test_one_phone_gets_one_internal_message_when_roles_overlap(tmp_path, monkeypatch):
+    sent = []
+
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def read(self): return json.dumps({'messages': [{'id': f'wamid.test{len(sent)}'}]}).encode()
+
+    def post(request, timeout=0):
+        sent.append(json.loads(request.data.decode('utf-8')))
+        return Response()
+
+    monkeypatch.setenv('WHATSAPP_PHONE_NUMBER_ID', '123456789')
+    monkeypatch.setenv('WHATSAPP_ACCESS_TOKEN', 'private-test-token')
+    monkeypatch.setenv('WHATSAPP_BUSINESS_ACCOUNT_ID', '')
+    monkeypatch.setattr('app.portal.urllib.request.urlopen', post)
+    app = make_app(tmp_path)
+    app.config['WHATSAPP_ALLOW_TEST_DELIVERY'] = True
+    with app.app_context():
+        EngineCentre.query.filter_by(key='chikalthana-midc').one().contacts[0].phone = '7743863504'
+        db.session.get(EngineWhatsAppAdmin, 1).phone = '7743863504'
+        db.session.commit()
+
+    service = app.test_client().post('/api/engine-d-carb/quotations',
+                                     json=engine_service(servicePhone='7743863504'))
+    assert service.status_code == 200
+    assert [item['recipient'] for item in service.json['whatsapp_delivery']] == ['admin']
+    assert [item['to'] for item in sent] == ['917743863504']
+    assert sent[0]['template']['name'] == 'engine_dcarb_new_service_lead'
+
+    sent.clear()
+    machine = app.test_client().post('/api/engine-d-carb/quotations', json={
+        'enquiryType': 'machine', 'companyAddress': 'ABC Motors, Pune',
+        'machineEmail': 'owner@example.com', 'representativeName': 'Asha Patil',
+        'machinePhone': '7743863504', 'businessDetails': '8 years',
+        'machineCity': 'Pune', 'machinePin': '411001', 'consent': True,
+    })
+    assert machine.status_code == 200
+    assert [item['recipient'] for item in machine.json['whatsapp_delivery']] == ['admin']
+    assert [item['to'] for item in sent] == ['917743863504']
+    assert sent[0]['template']['name'] == 'engine_dcarb_admin_machine_lead'
 
 
 def test_machine_enquiry_sends_customer_and_admin_whatsapp_templates(tmp_path, monkeypatch):
@@ -284,6 +376,7 @@ def test_machine_enquiry_sends_customer_and_admin_whatsapp_templates(tmp_path, m
     monkeypatch.setenv('WHATSAPP_ACCESS_TOKEN', 'private-test-token')
     monkeypatch.setenv('WHATSAPP_MACHINE_CUSTOMER_TEMPLATE', 'engine_dcarb_machine_enquiry_confirmation')
     monkeypatch.setenv('WHATSAPP_MACHINE_ADMIN_TEMPLATE', 'engine_dcarb_admin_machine_lead')
+    monkeypatch.setenv('WHATSAPP_BUSINESS_ACCOUNT_ID', '')
     monkeypatch.setattr('app.portal.urllib.request.urlopen', post)
     app = make_app(tmp_path)
     app.config['WHATSAPP_ALLOW_TEST_DELIVERY'] = True
@@ -306,6 +399,136 @@ def test_machine_enquiry_sends_customer_and_admin_whatsapp_templates(tmp_path, m
     assert 'Asha Patil' in requests[1]['template']['components'][0]['parameters'][0]['text']
     assert 'Submitted:' in requests[1]['template']['components'][0]['parameters'][0]['text']
     assert 'IST' in requests[1]['template']['components'][0]['parameters'][0]['text']
+
+
+def test_machine_admin_switches_to_spaced_template_only_after_approval(tmp_path, monkeypatch):
+    sent = []
+    status = {'value': 'PENDING'}
+
+    class Response:
+        def __init__(self, body): self.body = body
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def read(self): return json.dumps(self.body).encode()
+
+    def graph(request, timeout=0):
+        if request.full_url.endswith('/message_templates?name=engine_dcarb_admin_centre_lead_v2&fields=name%2Cstatus%2Clanguage&limit=10'):
+            return Response({'data': [{'name': 'engine_dcarb_admin_centre_lead_v2',
+                                       'language': 'en_IN', 'status': status['value']}]})
+        if request.data is None:
+            return Response({'data': []})
+        payload = json.loads(request.data.decode('utf-8'))
+        sent.append(payload)
+        return Response({'messages': [{'id': f'wamid.machine{len(sent)}'}]})
+
+    monkeypatch.setenv('WHATSAPP_PHONE_NUMBER_ID', '123456789')
+    monkeypatch.setenv('WHATSAPP_ACCESS_TOKEN', 'private-test-token')
+    monkeypatch.setenv('WHATSAPP_BUSINESS_ACCOUNT_ID', '2058875051625791')
+    monkeypatch.setattr('app.portal.urllib.request.urlopen', graph)
+    app = make_app(tmp_path)
+    app.config['WHATSAPP_ALLOW_TEST_DELIVERY'] = True
+    client = app.test_client()
+    form = {
+        'enquiryType': 'machine', 'companyAddress': 'ABC Motors, Pune',
+        'machineEmail': 'owner@example.com', 'representativeName': 'Asha Patil',
+        'machinePhone': '9876543210', 'businessDetails': '8 years',
+        'machineCity': 'Pune', 'machinePin': '411001', 'machineDetails': 'Two bays',
+        'consent': True,
+    }
+
+    assert client.post('/api/engine-d-carb/quotations', json=form).status_code == 200
+    assert sent[-1]['template']['name'] == 'engine_dcarb_admin_machine_lead'
+
+    status['value'] = 'APPROVED'
+    assert client.post('/api/engine-d-carb/quotations', json=form).status_code == 200
+    admin = sent[-1]['template']
+    assert admin['name'] == 'engine_dcarb_admin_centre_lead_v2'
+    parameters = [item['text'] for item in admin['components'][0]['parameters']]
+    assert len(parameters) == 9
+    assert parameters[:4] == ['Asha Patil', '9876543210', 'owner@example.com', 'ABC Motors, Pune']
+    assert parameters[6] == '411001'
+    assert parameters[8].endswith('IST')
+    assert all('\n' not in item for item in parameters)
+
+
+def test_approved_replacement_templates_use_separate_fields_and_centre_time(tmp_path, monkeypatch):
+    approved = {'engine_dcarb_service_quote_v2', 'engine_dcarb_service_centre_lead_v2',
+                'engine_dcarb_service_admin_lead_v2', 'engine_dcarb_machine_confirmation_v2',
+                'engine_dcarb_admin_centre_lead_v3'}
+    monkeypatch.setattr('app.portal.approved_replacement_templates', lambda names: names & approved)
+    sent = []
+
+    def capture(target, name, parameters, recipient):
+        sent.append((name, parameters, recipient))
+        return {'target': target, 'recipient': recipient, 'status': 'accepted',
+                'message_id': 'test', 'detail': 'test'}
+
+    monkeypatch.setattr('app.portal.send_whatsapp_template', capture)
+    app = make_app(tmp_path)
+    client = app.test_client()
+    assert client.post('/api/engine-d-carb/quotations', json=engine_service()).status_code == 200
+    assert [item[0] for item in sent] == [
+        'engine_dcarb_service_quote_v2', 'engine_dcarb_service_centre_lead_v2',
+        'engine_dcarb_service_admin_lead_v2']
+    assert len(sent[1][1]) == 6
+    assert sent[1][1][4] == 'Chikalthana MIDC'
+    assert sent[1][1][5].endswith('IST')
+    assert len(sent[2][1]) == 10
+    sent.clear()
+    machine = {'enquiryType': 'machine', 'companyAddress': 'ABC Motors, Pune',
+               'machineEmail': 'owner@example.com', 'representativeName': 'Asha Patil',
+               'machinePhone': '9876543210', 'businessDetails': '8 years',
+               'machineCity': 'Pune', 'machinePin': '411001', 'consent': True}
+    assert client.post('/api/engine-d-carb/quotations', json=machine).status_code == 200
+    assert [item[0] for item in sent] == [
+        'engine_dcarb_machine_confirmation_v2', 'engine_dcarb_admin_centre_lead_v3']
+    assert len(sent[1][1]) == 9
+
+
+def test_admin_edits_whatsapp_template_used_by_backend(tmp_path, monkeypatch):
+    app = make_app(tmp_path)
+    client = app.test_client()
+    assert login(client, 'admin@test.local', 'TestPass123!').status_code == 302
+    admin_page = client.get('/admin')
+    assert admin_page.status_code == 200
+    assert b'WhatsApp templates' in admin_page.data
+    assert b'Centre enquiry' in admin_page.data
+    token = re.search(b'name="csrf" value="([^"]+)', admin_page.data).group(1).decode()
+    response = client.post('/admin/engine-whatsapp-templates/service_customer', data={
+        'csrf': token, 'template_name': 'approved_customer_v2',
+        'parameter_format': ['{customer_name}', '{vehicle}', '{cost}',
+                             '{centre_name} | Visit: {centre_address} | Call: {centre_phone}'],
+    })
+    assert response.status_code == 302
+    with app.app_context():
+        from app.engine_templates import render_template_parameters, template_settings
+        assert len(template_settings()) == 6
+        name, parameters = render_template_parameters('service_customer', {
+            'customer_name': 'Riya', 'vehicle': 'Car/SUV', 'cost': 2058,
+            'centre_name': 'Chikalthana MIDC', 'centre_address': 'F-7/3, Chikalthana MIDC',
+            'centre_phone': '7727005151',
+        })
+        assert name == 'approved_customer_v2'
+        assert parameters[3] == 'Chikalthana MIDC | Visit: F-7/3, Chikalthana MIDC | Call: 7727005151'
+    sent = []
+    def capture(target, name, parameters, recipient):
+        sent.append((name, parameters, recipient))
+        return {'target': target, 'recipient': recipient, 'status': 'test_skipped', 'detail': 'Captured'}
+    monkeypatch.setattr('app.portal.send_whatsapp_template', capture)
+    quote = client.post('/api/engine-d-carb/quotations', json=engine_service(vehicleType='Car/SUV'))
+    assert quote.status_code == 200
+    assert quote.json['indicative_cost'] == 2058
+    assert sent[0][0] == 'approved_customer_v2'
+    assert ' | Call: 7727005151' in sent[0][1][3]
+    invalid = client.post('/admin/engine-whatsapp-templates/service_customer', data={
+        'csrf': token, 'template_name': 'bad_template',
+        'parameter_format': ['{customer_name}', '{vehicle}', '{cost}', '{customer_name.__class__}'],
+    }, follow_redirects=True)
+    assert invalid.status_code == 200
+    assert b'Use only the listed fields' in invalid.data
+    with app.app_context():
+        from app.engine_templates import template_settings
+        assert template_settings()[0]['name'] == 'approved_customer_v2'
 
 
 def test_employee_empty_dropdowns_allow_manual_entry(tmp_path):

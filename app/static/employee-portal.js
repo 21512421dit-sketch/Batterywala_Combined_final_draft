@@ -80,6 +80,31 @@
 
   const engineForm = document.getElementById('employeeEngineForm');
   const engineStatus = engineForm.querySelector('.form-status');
+  const centreSelect = engineForm.elements.selectedCentre;
+  const locationFields = [...engineForm.querySelectorAll('[data-engine-location]')];
+  let centresLoaded = false;
+  const syncEngineLocation = () => {
+    const isService = engineForm.elements.enquiryType.value === 'service';
+    const needsLocation = isService && centreSelect.value === 'other';
+    centreSelect.disabled = !isService || !centresLoaded;
+    locationFields.forEach(field => {
+      field.hidden = !needsLocation;
+      const input = field.querySelector('input');
+      input.disabled = !needsLocation;
+      input.required = needsLocation;
+    });
+    engineForm.querySelector('button[type="submit"]').disabled = isService && !centresLoaded;
+  };
+  centreSelect.addEventListener('change', syncEngineLocation);
+  fetch('/api/engine-d-carb/centres', {headers:{Accept:'application/json'}})
+    .then(response => response.ok ? response.json() : Promise.reject(new Error('Unable to load service centres.')))
+    .then(data => {
+      centreSelect.replaceChildren(option('', 'Select your nearest centre'));
+      (data.centres || []).forEach(centre => centreSelect.append(option(centre.key, `${centre.name} — ${centre.city}, ${centre.state}`)));
+      centreSelect.append(option('other', 'Others'));
+      centresLoaded = true;
+      syncEngineLocation();
+    }).catch(() => { centreSelect.replaceChildren(option('', 'Service centres unavailable')); syncEngineLocation(); });
   const switchEngineKind = () => {
     const kind = engineForm.elements.enquiryType.value;
     ['service', 'machine'].forEach(name => {
@@ -87,6 +112,7 @@
       section.hidden = !active;
       section.querySelectorAll('input,select,textarea').forEach(control => control.disabled = !active);
     });
+    syncEngineLocation();
   };
   engineForm.elements.enquiryType.forEach(item => item.addEventListener('change', switchEngineKind)); switchEngineKind();
   engineForm.addEventListener('submit', async event => {

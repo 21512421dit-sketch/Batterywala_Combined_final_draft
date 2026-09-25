@@ -22,6 +22,12 @@
     if (!button) return;
     showDetails(button.dataset.customer, JSON.parse(button.dataset.details));
   });
+  body.addEventListener('submit', event => {
+    const form = event.target.closest('.submission-delete-form');
+    if (form && !window.confirm(`Delete the request from ${form.dataset.customer}? This also removes its saved quotation and delivery history.`)) {
+      event.preventDefault();
+    }
+  });
   dialog.querySelector('.dialog-close').addEventListener('click', () => dialog.close());
   dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
   document.querySelectorAll('.centre-contact-delete').forEach(form => form.addEventListener('submit', event => {
@@ -52,6 +58,22 @@
         const download = document.createElement('a'); download.href = `${row.quotation_pdf_url}?download=1`; download.textContent = 'Download';
         actions.append(view, download); td.append(actions);
       }
+      const deleteForm = document.createElement('form');
+      deleteForm.className = 'submission-delete-form';
+      deleteForm.method = 'post';
+      deleteForm.action = `/admin/submissions/${row.id}/delete`;
+      deleteForm.dataset.customer = row.name || 'this request';
+      const fields = new URLSearchParams(location.search);
+      fields.set('csrf', body.dataset.csrf);
+      fields.set('site', body.dataset.site);
+      ['csrf', 'site', 'search', 'from', 'to', 'kind', 'employee_id'].forEach(name => {
+        const input = document.createElement('input');
+        input.type = 'hidden'; input.name = name; input.value = fields.get(name) || '';
+        deleteForm.append(input);
+      });
+      const deleteButton = document.createElement('button');
+      deleteButton.className = 'text-button danger'; deleteButton.type = 'submit';
+      deleteButton.textContent = 'Delete request'; deleteForm.append(deleteButton); td.append(deleteForm);
       tr.append(td); body.append(tr);
     });
     latestId = String(data.rows[0].id);

@@ -3,10 +3,12 @@
 1. Add `WHATSAPP_APP_SECRET` privately in `.env` from the sending Meta app's App settings → Basic → App secret. It is not the access token or registration PIN.
 2. Restart the Flask server after changing `.env`.
 3. Start `ngrok http 8000`. This temporarily exposes the local website, including its protected admin login. Keep it running only while testing.
-4. In Meta app → WhatsApp use case → Production setup → Configure Webhooks, set Callback URL to `https://YOUR-NGROK-HOST/api/whatsapp/webhook`. Copy the private `WHATSAPP_VERIFY_TOKEN` value from `.env` into Verify token. Verify and save.
+4. Every time ngrok assigns a new hostname, update the Engine D-Carb WABA's subscribed-app callback override to `https://YOUR-NGROK-HOST/api/whatsapp/webhook` with the private `WHATSAPP_VERIFY_TOKEN` from `.env`. The existing WABA subscription override takes precedence over the app's default callback URL. Verify the new URL before sending a test message. When moving to Hostinger, replace this temporary override with the permanent HTTPS webhook URL.
 5. Subscribe to the `messages` webhook field and enable Subscribe webhooks for the Care4Earth Enterprises WhatsApp Business Account containing +91 9607069191. If Meta warns that the app is unpublished, complete its publishing requirements for production callbacks.
 6. Submit a fresh consented enquiry. API acceptance is not proof of delivery. Signed callbacks update the stored status to sent, delivered, read, or failed.
 7. Refresh admin → View details to inspect each recipient's status/error. Admin-only `/admin/whatsapp-deliveries.json` shows the latest 50 tracked messages.
+
+Changing ngrok cannot fix a Meta template rejection. Error `#132001` means the selected template name or language is unavailable for the sending WABA. Confirm that the exact template is approved in `en_IN`, and check the number of body placeholders before retrying. A send API response with a message ID means **accepted**, not delivered; wait for a signed `delivered` or `read` webhook status.
 
 ## Required enquiry templates
 

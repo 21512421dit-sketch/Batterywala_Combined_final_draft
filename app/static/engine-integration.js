@@ -30,10 +30,10 @@
   if (enquiryLayout) {
     enquiryLayout.innerHTML = `<div class="engine-enquiry-choices">
       <button type="button" class="engine-enquiry-launch" data-enquiry-type="service">
-        <span class="engine-choice-number">01</span><span><strong>Vehicle Servicing</strong><small>Share your vehicle details and choose a nearby service centre.</small></span><i aria-hidden="true">&rarr;</i>
+        <span class="engine-choice-number">01</span><span><strong>Engine D-Carb Form</strong><small>Share your vehicle details and choose a nearby service centre.</small></span><i aria-hidden="true">&rarr;</i>
       </button>
       <button type="button" class="engine-enquiry-launch" data-enquiry-type="machine">
-        <span class="engine-choice-number">02</span><span><strong>New Machine Enquiry</strong><small>Tell us about your workshop and find the right configuration.</small></span><i aria-hidden="true">&rarr;</i>
+        <span class="engine-choice-number">02</span><span><strong>Start a D-Carb Centre</strong><small>Tell us about your workshop and find the right configuration.</small></span><i aria-hidden="true">&rarr;</i>
       </button>
     </div>`;
   }
@@ -49,8 +49,8 @@
     const isService = type === 'service';
     const dialogTitle = document.getElementById('enquiryDialogTitle');
     const dialogEyebrow = dialog.querySelector('.engine-dialog-header .eyebrow');
-    if (dialogTitle) dialogTitle.textContent = isService ? 'Vehicle D-Carb Form' : 'New Machine Enquiry Form';
-    if (dialogEyebrow) dialogEyebrow.textContent = isService ? 'D-Carb service' : 'Business enquiry';
+    if (dialogTitle) dialogTitle.textContent = isService ? 'Engine D-Carb Form' : 'Start Your D-Carb Centre';
+    if (dialogEyebrow) dialogEyebrow.textContent = isService ? 'D-Carb service' : 'Own a D-Carb centre';
     const radio = form.querySelector(`input[name="enquiryType"][value="${type}"]`);
     if (radio) {
       radio.checked = true;
@@ -86,7 +86,7 @@
       </div>
     </details>
     <a class="engine-menu-enquiry engine-enquiry-trigger" href="#enquiry" data-enquiry-type="service">D-Carb Now</a>
-    <a class="engine-menu-enquiry engine-enquiry-trigger" href="#enquiry" data-enquiry-type="machine">Business Enquiry</a>`);
+    <a class="engine-menu-enquiry engine-enquiry-trigger" href="#enquiry" data-enquiry-type="machine">Start a D-Carb Centre</a>`);
 
   const socialMenu = navLinks?.querySelector('.engine-nav-social');
   const mobileNav = window.matchMedia('(max-width: 900px)');
@@ -101,7 +101,7 @@
     heroActions.classList.add('engine-hero-actions');
     heroActions.innerHTML = `
       <a class="engine-hero-action service engine-enquiry-trigger" href="#enquiry" data-enquiry-type="service">D-Carb Now</a>
-      <a class="engine-hero-action business engine-enquiry-trigger" href="#enquiry" data-enquiry-type="machine">Business Enquiry</a>
+      <a class="engine-hero-action business engine-enquiry-trigger" href="#enquiry" data-enquiry-type="machine">Start a D-Carb Centre</a>
       <a href="#process" class="btn-ghost"><span class="play" aria-hidden="true">&#9654;</span> See how it works</a>`;
   }
 
@@ -207,8 +207,8 @@
   if (enquiryTypeSelector) enquiryTypeSelector.hidden = true;
   const servicePanelTitle = document.querySelector('#serviceFields h3');
   const machinePanelTitle = document.querySelector('#machineFields h3');
-  if (servicePanelTitle) servicePanelTitle.textContent = 'Vehicle D-Carb Form';
-  if (machinePanelTitle) machinePanelTitle.textContent = 'New Machine Enquiry Form';
+  if (servicePanelTitle) servicePanelTitle.textContent = 'Engine D-Carb Form';
+  if (machinePanelTitle) machinePanelTitle.textContent = 'Start Your Own D-Carb Centre';
 
   document.querySelectorAll('.engine-enquiry-launch, .engine-enquiry-trigger').forEach(button =>
     button.addEventListener('click', event => {
@@ -222,13 +222,13 @@
   floatingActions.className = 'engine-floating-actions';
   floatingActions.setAttribute('aria-label', 'Quick enquiry actions');
   floatingActions.innerHTML = `
-    <a class="engine-floating-action service" href="#enquiry" data-enquiry-type="service" aria-label="Open Vehicle D-Carb Form">
+    <a class="engine-floating-action service" href="#enquiry" data-enquiry-type="service" aria-label="Open Engine D-Carb Form">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 5.5a5.4 5.4 0 0 1-7.2 5.1L7 17.4a2.1 2.1 0 1 1-3-3l6.8-6.8A5.4 5.4 0 0 1 16 1l-3.1 3.1 3 3L19 4a5.4 5.4 0 0 1 2 1.5Z"/><path d="m14.5 14.5 5.3 5.3"/></svg>
       <span class="engine-floating-tooltip">D-Carb Now</span>
     </a>
-    <a class="engine-floating-action machine" href="#enquiry" data-enquiry-type="machine" aria-label="Open New Machine Enquiry Form">
+    <a class="engine-floating-action machine" href="#enquiry" data-enquiry-type="machine" aria-label="Open Start Your D-Carb Centre form">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9h10v11M7 9V5h7v4M14 13h6v7M7 13h2m-2 3h2m8-1h1"/><path d="M2 20h20"/></svg>
-      <span class="engine-floating-tooltip">Business Enquiry</span>
+      <span class="engine-floating-tooltip">Start a D-Carb Centre</span>
     </a>`;
   document.body.append(floatingActions);
   floatingActions.querySelectorAll('.engine-floating-action').forEach(action => {
@@ -353,23 +353,19 @@
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Unable to save the enquiry.');
       const enquiryType = payload.enquiryType;
+      const deliveries = result.whatsapp_delivery || [];
+      const allSent = deliveries.length > 0 && deliveries.every(item => item.status === 'accepted');
       if (enquiryType === 'machine') {
-        const deliveries = result.whatsapp_delivery || [];
-        const customerSent = deliveries.some(item => item.recipient === 'customer' && item.status === 'accepted');
-        const adminSent = deliveries.some(item => item.recipient === 'admin' && item.status === 'accepted');
-        completionStatus.textContent = customerSent && adminSent
+        completionStatus.textContent = allSent
           ? 'WhatsApp message sent to admin.'
           : 'Enquiry saved, but the WhatsApp message could not be sent.';
-        completionStatus.classList.toggle('warning', !(customerSent && adminSent));
+        completionStatus.classList.toggle('warning', !allSent);
       } else {
-        const deliveries = result.whatsapp_delivery || [];
-        const customerSent = deliveries.some(item => item.recipient === 'customer' && item.status === 'accepted');
         const centreSent = deliveries.some(item => item.recipient.startsWith('centre:') && item.status === 'accepted');
-        const adminSent = deliveries.some(item => item.recipient === 'admin' && item.status === 'accepted');
-        completionStatus.textContent = customerSent && centreSent && adminSent
-          ? 'WhatsApp message sent to admin and service centre head.'
+        completionStatus.textContent = allSent
+          ? (centreSent ? 'WhatsApp message sent to admin and service centre head.' : 'WhatsApp message sent to the available contacts.')
           : 'Enquiry saved, but the WhatsApp message could not be sent.';
-        completionStatus.classList.toggle('warning', !(customerSent && centreSent && adminSent));
+        completionStatus.classList.toggle('warning', !allSent);
       }
       error.classList.remove('visible');
       completionStatus.hidden = false;

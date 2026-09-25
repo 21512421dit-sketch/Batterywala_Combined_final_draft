@@ -1,8 +1,14 @@
+import os
+
 from flask import request
 
 from app import create_app
 from app.portal import engine_site_response
 
+
+# Local previews may inherit an unreachable proxy. Keep Meta reachable for form delivery.
+if 'graph.facebook.com' not in os.getenv('NO_PROXY', '').lower().split(','):
+    os.environ['NO_PROXY'] = ','.join(filter(None, (os.getenv('NO_PROXY'), 'graph.facebook.com')))
 
 app = create_app()
 
@@ -12,7 +18,11 @@ def restrict_to_engine_dcarb():
     path = request.path
     if path == '/':
         return engine_site_response()
-    if path in {'/engine-d-carb', '/privacy', '/data-deletion'}:
+    if path in {
+        '/engine-d-carb', '/engine-d-carb/privacy-policy',
+        '/engine-d-carb/terms-and-conditions', '/privacy', '/data-deletion',
+        '/sitemap.xml', '/robots.txt',
+    }:
         return None
     if path in {
         '/api/engine-d-carb/centres',

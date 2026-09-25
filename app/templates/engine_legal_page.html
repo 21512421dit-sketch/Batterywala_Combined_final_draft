@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ 'Privacy Policy' if legal_kind == 'privacy' else 'Terms and Conditions' }} | Engine D-Carb</title>
+  <meta name="description" content="{{ 'How Engine D-Carb handles customer enquiries and personal information.' if legal_kind == 'privacy' else 'Terms for using the Engine D-Carb website and submitting an enquiry.' }}">
+  <link rel="canonical" href="{{canonical_url}}">
+  <link rel="stylesheet" href="/static/engine-legal.css">
+</head>
+<body class="engine-legal-page">
+  <main class="engine-legal-document">
+    <nav aria-label="Back to Engine D-Carb"><a href="/engine-d-carb">← Engine D-Carb</a></nav>
+    <h1>{{ 'Privacy Policy' if legal_kind == 'privacy' else 'Terms and Conditions' }}</h1>
+    {% include 'engine_legal_content.html' %}
+  </main>
+</body>
+</html>

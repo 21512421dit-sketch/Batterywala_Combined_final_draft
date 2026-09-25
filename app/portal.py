@@ -5,11 +5,14 @@ import os
 import re
 import smtplib
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from email.utils import formataddr
 from pathlib import Path
+from html import escape as html_escape
+from xml.sax.saxutils import escape as xml_escape
 
 from flask import Blueprint, Response, current_app, jsonify, redirect, render_template, request, send_file, url_for
 from flask_login import current_user, login_required
@@ -18,7 +21,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from werkzeug.security import generate_password_hash
 
 from . import db
-from .models import Delivery, EngineCentre, EngineCentreContact, EngineWhatsAppAdmin, Lead, Submission, User
+from .models import Delivery, EngineCentre, EngineCentreContact, EngineWhatsAppAdmin, EngineWhatsAppTemplate, Lead, Submission, User
 
 
 bp = Blueprint('portal', __name__)
@@ -121,9 +124,13 @@ def ensure_engine_centres():
     for index, (key, name, address, default_phone) in enumerate(ENGINE_CENTRES, start=1):
         centre = EngineCentre.query.filter_by(key=key).first()
         if centre:
-            centre.name, centre.address, centre.sort_order = name, address, index
+            if not centre.city:
+                centre.city = 'Chhatrapati Sambhajinagar'
+            if not centre.state:
+                centre.state = 'Maharashtra'
             continue
-        centre = EngineCentre(key=key, name=name, address=address, sort_order=index)
+        centre = EngineCentre(key=key, name=name, address=address, city='Chhatrapati Sambhajinagar',
+                              state='Maharashtra', sort_order=index)
         centre.contacts.append(EngineCentreContact(contact_name='Primary centre contact', phone=default_phone))
         db.session.add(centre)
     db.session.commit()
@@ -141,7 +148,8 @@ def ensure_engine_whatsapp_admin():
 
 
 def centre_dict(centre, include_contacts=False):
-    data = {'key': centre.key, 'name': centre.name, 'address': centre.address}
+    data = {'key': centre.key, 'name': centre.name, 'address': centre.address,
+            'city': centre.city, 'state': centre.state}
     if include_contacts:
         data['contacts'] = [{'id': item.id, 'name': item.contact_name, 'phone': item.phone}
                             for item in centre.contacts]
@@ -221,7 +229,8 @@ def send_whatsapp_template(target, template_name, parameters, recipient):
     except urllib.error.HTTPError as error:
         try:
             error_data = json.loads(error.read().decode('utf-8'))
-            detail = (error_data.get('error') or {}).get('message') or f'Meta returned HTTP {error.code}.'
+            meta_error = error_data.get('error') or {}
+            detail = (meta_error.get('error_data') or {}).get('details') or meta_error.get('message') or f'Meta returned HTTP {error.code}.'
         except (ValueError, UnicodeDecodeError):
             detail = f'Meta returned HTTP {error.code}.'
         current_app.logger.warning('WhatsApp template delivery failed for %s: %s', recipient, detail)
@@ -230,6 +239,52 @@ def send_whatsapp_template(target, template_name, parameters, recipient):
         current_app.logger.warning('WhatsApp template delivery failed for %s: %s', recipient, error)
         return {'recipient': recipient, 'target': normalized_target, 'status': 'failed',
                 'detail': 'Unable to reach the WhatsApp service.'}
+
+
+def approved_whatsapp_template(name):
+    """Switch to a replacement only after Meta reports it approved."""
+    account_id = (os.getenv('WHATSAPP_BUSINESS_ACCOUNT_ID') or '').strip()
+    token = (os.getenv('WHATSAPP_ACCESS_TOKEN') or '').strip()
+    if not account_id or not token or not re.fullmatch(r'\d+', account_id):
+        return False
+    version = (os.getenv('WHATSAPP_API_VERSION') or 'v23.0').strip()
+    if not re.fullmatch(r'v\d+\.\d+', version):
+        version = 'v23.0'
+    query = urllib.parse.urlencode({'name': name, 'fields': 'name,status,language', 'limit': 10})
+    lookup = urllib.request.Request(
+        f'https://graph.facebook.com/{version}/{account_id}/message_templates?{query}',
+        headers={'Authorization': f'Bearer {token}'})
+    try:
+        with urllib.request.urlopen(lookup, timeout=5) as response:
+            templates = json.load(response).get('data', [])
+    except (OSError, ValueError):
+        return False
+    language = (os.getenv('WHATSAPP_TEMPLATE_LANGUAGE') or 'en_IN').strip()
+    return any(item.get('name') == name and item.get('language') == language
+               and item.get('status') == 'APPROVED' for item in templates)
+
+
+def approved_replacement_templates(names):
+    """Read replacement approvals in one request; keep approved originals on lookup failure."""
+    account_id = (os.getenv('WHATSAPP_BUSINESS_ACCOUNT_ID') or '').strip()
+    token = (os.getenv('WHATSAPP_ACCESS_TOKEN') or '').strip()
+    if not account_id or not token or not re.fullmatch(r'\d+', account_id):
+        return set()
+    version = (os.getenv('WHATSAPP_API_VERSION') or 'v23.0').strip()
+    if not re.fullmatch(r'v\d+\.\d+', version):
+        version = 'v23.0'
+    query = urllib.parse.urlencode({'fields': 'name,status,language', 'limit': 100})
+    lookup = urllib.request.Request(
+        f'https://graph.facebook.com/{version}/{account_id}/message_templates?{query}',
+        headers={'Authorization': f'Bearer {token}'})
+    try:
+        with urllib.request.urlopen(lookup, timeout=5) as response:
+            templates = json.load(response).get('data', [])
+    except (OSError, ValueError):
+        return set()
+    language = (os.getenv('WHATSAPP_TEMPLATE_LANGUAGE') or 'en_IN').strip()
+    return {item['name'] for item in templates if item.get('name') in names
+            and item.get('language') == language and item.get('status') == 'APPROVED'}
 
 
 def engine_admin_number():
@@ -244,72 +299,114 @@ def india_submission_time():
     return f"{current.day} {current.strftime('%b %Y')}, {hour}:{current.strftime('%M %p')} IST"
 
 
-def machine_admin_details(form):
-    return (
-        f"Representative: {form['representativeName']}; "
-        f"WhatsApp: {form['machinePhone']}; "
-        f"Email: {form['machineEmail']}; "
-        f"Company & address: {form['companyAddress']}; "
-        f"Business details: {form['businessDetails']}; "
-        f"Location: {form['machineCity']} — {form['machinePin']}; "
-        f"Other details: {form.get('machineDetails') or 'Not provided'}; "
-        f"Submitted: {india_submission_time()}"
-    )
+def machine_template_values(form):
+    return {
+        'representative_name': form['representativeName'],
+        'machine_phone': form['machinePhone'], 'machine_email': form['machineEmail'],
+        'company_address': form['companyAddress'], 'business_details': form['businessDetails'],
+        'machine_city': form['machineCity'], 'machine_pin': form['machinePin'],
+        'machine_details': form.get('machineDetails') or 'Not provided',
+        'submitted_at': india_submission_time(),
+    }
+
+
+def centre_head_phone(centre):
+    if not centre or not centre.contacts:
+        return 'To be confirmed'
+    named_head = next((item for item in centre.contacts if 'head' in item.contact_name.lower()), None)
+    return (named_head or centre.contacts[0]).phone
+
+
+def send_unique_whatsapp(planned):
+    """Send one message per phone, keeping the most actionable role's template."""
+    role_priority = {'customer': 0, 'centre': 1, 'admin': 2}
+    selected = {}
+    for index, (recipient, target, name, parameters) in enumerate(planned):
+        number = normalize_whatsapp_number(target)
+        role = recipient.split(':', 1)[0]
+        priority = role_priority[role]
+        if number not in selected or priority > selected[number][0]:
+            selected[number] = (priority, index, recipient, number, name, parameters)
+    return [send_whatsapp_template(number, name, parameters, recipient)
+            for _, _, recipient, number, name, parameters in sorted(selected.values(), key=lambda item: item[1])]
 
 
 def send_engine_whatsapp(form, result, centre=None):
+    from .engine_templates import render_template_parameters, render_spaced_parameters
     if os.getenv('WHATSAPP_TEST_MODE', '').lower() == 'true':
         result['whatsapp_test_mode'] = True
         customer_phone = form.get('servicePhone') or form.get('machinePhone')
         return [send_whatsapp_template(customer_phone, 'hello_world', [], 'customer')]
 
     if form['enquiryType'] == 'machine':
-        customer_template = (os.getenv('WHATSAPP_MACHINE_CUSTOMER_TEMPLATE') or
-                             'engine_dcarb_machine_enquiry_confirmation').strip()
-        admin_template = (os.getenv('WHATSAPP_MACHINE_ADMIN_TEMPLATE') or
-                          'engine_dcarb_admin_machine_lead').strip()
-        return [
-            send_whatsapp_template(
-                form['machinePhone'], customer_template,
-                [form['representativeName'], form['companyAddress']], 'customer'),
-            send_whatsapp_template(
-                engine_admin_number(), admin_template,
-                [machine_admin_details(form)], 'admin'),
-        ]
+        values = machine_template_values(form)
+        customer_template, customer_parameters = render_template_parameters('machine_customer', values)
+        replacement = 'engine_dcarb_machine_confirmation_v2'
+        approved = approved_replacement_templates({replacement, 'engine_dcarb_admin_centre_lead_v3'})
+        if replacement in approved and not db.session.get(EngineWhatsAppTemplate, 'machine_customer'):
+            customer_template, customer_parameters = render_spaced_parameters(
+                replacement, ['representative_name', 'company_address'], values)
+        spaced_template, spaced_parameters = render_template_parameters('machine_admin_spaced', values)
+        replacement = 'engine_dcarb_admin_centre_lead_v3'
+        if db.session.get(EngineWhatsAppTemplate, 'machine_admin'):
+            admin_template, admin_parameters = render_template_parameters('machine_admin', values)
+        elif db.session.get(EngineWhatsAppTemplate, 'machine_admin_spaced') and approved_whatsapp_template(spaced_template):
+            admin_template, admin_parameters = spaced_template, spaced_parameters
+        elif replacement in approved:
+            admin_template, admin_parameters = render_spaced_parameters(
+                replacement, ['representative_name', 'machine_phone', 'machine_email',
+                              'company_address', 'business_details', 'machine_city',
+                              'machine_pin', 'machine_details', 'submitted_at'], values)
+        elif approved_whatsapp_template(spaced_template):
+            admin_template, admin_parameters = spaced_template, spaced_parameters
+        else:
+            admin_template, admin_parameters = render_template_parameters('machine_admin', values)
+        return send_unique_whatsapp([
+            ('customer', form['machinePhone'], customer_template, customer_parameters),
+            ('admin', engine_admin_number(), admin_template, admin_parameters),
+        ])
 
-    customer_template = (os.getenv('WHATSAPP_CUSTOMER_TEMPLATE') or
-                         'engine_dcarb_service_quote').strip()
-    centre_template = (os.getenv('WHATSAPP_CENTRE_TEMPLATE') or
-                       'engine_dcarb_new_service_lead').strip()
-    admin_template = (os.getenv('WHATSAPP_ADMIN_TEMPLATE') or centre_template).strip()
     vehicle = (f"{form['vehicleType']} — {form['vehicleBrand']} {form['vehicleModel']} "
                f"({form['passingYear']}), {form['fuelType']}, {form['engineCc']} CC")
-    deliveries = [send_whatsapp_template(
-        form['servicePhone'], customer_template,
-        [form['customerName'], vehicle, result['indicative_cost'], result['centre']['name']], 'customer')]
-    if centre:
-        for contact in centre.contacts:
-            deliveries.append(send_whatsapp_template(
-                contact.phone, centre_template,
-                [form['customerName'], form['servicePhone'], vehicle, result['indicative_cost'],
-                 result['centre']['name']], f'centre:{contact.contact_name}'))
     centre_heads = ', '.join(
         f'{contact.contact_name} ({contact.phone})' for contact in centre.contacts
     ) if centre and centre.contacts else 'To be assigned'
-    admin_vehicle = (
-        f"{vehicle}; {int(form['kilometres']):,} km; "
-        f"Other details: {form.get('serviceDetails') or 'Not provided'}"
+    values = {
+        'customer_name': form['customerName'], 'customer_phone': form['servicePhone'],
+        'vehicle': vehicle, 'kilometres': f"{int(form['kilometres']):,} km",
+        'service_details': form.get('serviceDetails') or 'Not provided',
+        'cost': result['indicative_cost'], 'centre_name': result['centre']['name'],
+        'centre_address': result['centre']['address'],
+        'centre_phone': centre_head_phone(centre),
+        'centre_heads': centre_heads, 'submitted_at': india_submission_time(),
+    }
+    customer_template, customer_parameters = render_template_parameters('service_customer', values)
+    centre_template, centre_parameters = render_template_parameters('service_centre', values)
+    admin_template, admin_parameters = render_template_parameters('service_admin', values)
+    replacements = (
+        ('engine_dcarb_service_quote_v2', ['customer_name', 'vehicle', 'cost',
+                                           'centre_name', 'centre_address', 'centre_phone']),
+        ('engine_dcarb_service_centre_lead_v2', ['customer_name', 'customer_phone',
+                                                 'vehicle', 'cost', 'centre_name', 'submitted_at']),
+        ('engine_dcarb_service_admin_lead_v2', ['customer_name', 'customer_phone',
+                                                'vehicle', 'kilometres', 'service_details',
+                                                'cost', 'centre_name', 'centre_address',
+                                                'centre_heads', 'submitted_at']),
     )
-    centre_details = (
-        f"{result['centre']['name']} — {result['centre']['address']}; "
-        f"Centre head handling: {centre_heads}; "
-        f"Submitted: {india_submission_time()}"
-    )
-    deliveries.append(send_whatsapp_template(
-        engine_admin_number(), admin_template,
-        [form['customerName'], form['servicePhone'], admin_vehicle,
-         result['indicative_cost'], centre_details], 'admin'))
-    return deliveries
+    approved = approved_replacement_templates({name for name, _ in replacements})
+    if replacements[0][0] in approved and not db.session.get(EngineWhatsAppTemplate, 'service_customer'):
+        customer_template, customer_parameters = render_spaced_parameters(*replacements[0], values)
+    if replacements[1][0] in approved and not db.session.get(EngineWhatsAppTemplate, 'service_centre'):
+        centre_template, centre_parameters = render_spaced_parameters(*replacements[1], values)
+    if replacements[2][0] in approved and not db.session.get(EngineWhatsAppTemplate, 'service_admin'):
+        admin_template, admin_parameters = render_spaced_parameters(*replacements[2], values)
+    planned = [('customer', form['servicePhone'], customer_template, customer_parameters)]
+    if centre:
+        for contact in centre.contacts:
+            planned.append((f'centre:{contact.contact_name}', contact.phone,
+                            centre_template, centre_parameters))
+    planned.append(('admin', engine_admin_number(), admin_template, admin_parameters))
+    return send_unique_whatsapp(planned)
 
 
 def send_engine_emails(form, result, customer_email):
@@ -389,22 +486,29 @@ def purge_expired_submissions():
     expired = Submission.query.filter(Submission.expires_at <= now).all()
     if not expired:
         return 0
-    lead_ids = {item.lead_id for item in expired if item.lead_id}
+    for item in expired:
+        delete_submission_data(item)
+    db.session.commit()
+    return len(expired)
+
+
+def delete_submission_data(item):
+    """Delete one request and its owned lead, deliveries, and WhatsApp status records."""
     from .models import WhatsAppMessage
-    messages = WhatsAppMessage.query.filter(WhatsAppMessage.submission_id.in_([item.id for item in expired])).all()
-    delivery_ids = [item.delivery_id for item in messages if item.delivery_id]
+    messages = WhatsAppMessage.query.filter_by(submission_id=item.id).all()
+    delivery_ids = {message.delivery_id for message in messages if message.delivery_id}
     for message in messages:
         db.session.delete(message)
     db.session.flush()
     if delivery_ids:
         Delivery.query.filter(Delivery.id.in_(delivery_ids)).delete(synchronize_session=False)
-    if lead_ids:
-        Delivery.query.filter(Delivery.lead_id.in_(lead_ids)).delete(synchronize_session=False)
-        Lead.query.filter(Lead.id.in_(lead_ids)).delete(synchronize_session=False)
-    for item in expired:
-        db.session.delete(item)
-    db.session.commit()
-    return len(expired)
+    Delivery.query.filter_by(submission_id=item.id).delete(synchronize_session=False)
+    if item.lead_id:
+        Delivery.query.filter_by(lead_id=item.lead_id).delete(synchronize_session=False)
+        lead = db.session.get(Lead, item.lead_id)
+        if lead:
+            db.session.delete(lead)
+    db.session.delete(item)
 
 
 def record_submission(site, form_kind, form, result=None, lead_id=None, consented=True):
@@ -435,11 +539,27 @@ def admin_required(fn):
     return inner
 
 
+def engine_public_origin():
+    domain = (os.getenv('ENGINE_DCARB_DOMAIN') or '').strip().split(':')[0].lower()
+    return f'https://{domain}' if domain else request.host_url.rstrip('/')
+
+
+def engine_canonical_url():
+    return engine_public_origin() + '/' if os.getenv('ENGINE_DCARB_DOMAIN', '').strip() else request.base_url
+
+
 def engine_site_response():
     source = Path(current_app.root_path).parent / 'docs' / 'engine_dcarb_latest.html'
     html = source.read_text(encoding='utf-8')
-    public_email = (os.getenv('ENGINE_DCARB_EMAIL') or os.getenv('SMTP_FROM') or
-                    os.getenv('SMTP_USERNAME') or 'engine.dcarb@gmail.com').strip()
+    html = re.sub(r'<script type="application/ld\+json">.*?</script>', '', html, count=1, flags=re.DOTALL)
+    title = 'Engine D-Carb | Engine Decarbonization Service & Machines'
+    description = ('Explore Engine D-Carb vehicle decarbonization services and HHO machines for workshops. '
+                   'Choose a service centre or enquire about a machine in India.')
+    html = re.sub(r'<title>.*?</title>', f'<title>{title}</title>', html, count=1, flags=re.DOTALL)
+    html = re.sub(r'<meta name="description" content="[^"]*">',
+                  f'<meta name="description" content="{html_escape(description, quote=True)}">', html, count=1)
+    html = re.sub(r'\s*<meta name="keywords" content="[^"]*">', '', html, count=1)
+    public_email = 'enquiry@enginedcarb.com'
     html = html.replace('rahul.care4earth@outlook.com', public_email)
     html = html.replace('Your information stays in your browser until you choose to send it.',
                         'Your information is stored for 24 months only after you accept the consent notice and submit.')
@@ -454,23 +574,101 @@ def engine_site_response():
                          for question, answer in ENGINE_FAQS)
     html = re.sub(r'(<div class="faq-list reveal">).*?(</div></div></section>`;)',
                   rf'\1{faq_markup}\2', html, count=1, flags=re.DOTALL)
+    legal_links = (
+        '<nav class="engine-legal-links" aria-label="Legal information">'
+        '<a href="/engine-d-carb/privacy-policy" data-engine-legal="privacy">Privacy Policy</a>'
+        '<a href="/engine-d-carb/terms-and-conditions" data-engine-legal="terms">Terms and Conditions</a>'
+        '</nav>'
+    )
+    html = html.replace('<span>Made in India</span></div></footer>',
+                        f'<span>Made in India</span>{legal_links}</div></footer>', 1)
+    legal_dialog = (
+        '<dialog class="engine-legal-dialog" id="engineLegalDialog" aria-labelledby="engineLegalTitle">'
+        '<div class="engine-legal-dialog-frame">'
+        '<header class="engine-legal-dialog-header"><h2 id="engineLegalTitle" tabindex="-1"></h2>'
+        '<button type="button" class="engine-legal-close" aria-label="Close legal information">&times;</button></header>'
+        '<div class="engine-legal-dialog-body">'
+        '<article class="engine-legal-document" data-engine-legal-content="privacy" hidden>'
+        + render_template('engine_legal_content.html', legal_kind='privacy') + '</article>'
+        '<article class="engine-legal-document" data-engine-legal-content="terms" hidden>'
+        + render_template('engine_legal_content.html', legal_kind='terms') + '</article>'
+        '</div></div></dialog>'
+    )
+    html = html.replace('</body>', legal_dialog + '</body>', 1)
     faq_schema = {'@context': 'https://schema.org', '@type': 'FAQPage', 'mainEntity': [
         {'@type': 'Question', 'name': question,
          'acceptedAnswer': {'@type': 'Answer', 'text': answer}}
         for question, answer in ENGINE_FAQS]}
+    canonical = engine_canonical_url()
+    origin = engine_public_origin()
+    organization_schema = {
+        '@context': 'https://schema.org', '@type': 'Organization',
+        'name': 'Engine D-Carb', 'url': canonical,
+        'email': public_email, 'telephone': '+91 9607069191',
+    }
+    image_url = origin + '/static/engine-assets/dcarb-technician-connection.png'
+    metadata = (
+        f'<link rel="canonical" href="{html_escape(canonical, quote=True)}">'
+        '<meta name="robots" content="index,follow">'
+        '<meta property="og:type" content="website">'
+        f'<meta property="og:title" content="{html_escape(title, quote=True)}">'
+        f'<meta property="og:description" content="{html_escape(description, quote=True)}">'
+        f'<meta property="og:url" content="{html_escape(canonical, quote=True)}">'
+        f'<meta property="og:image" content="{html_escape(image_url, quote=True)}">'
+        '<meta name="twitter:card" content="summary_large_image">'
+        f'<meta name="twitter:title" content="{html_escape(title, quote=True)}">'
+        f'<meta name="twitter:description" content="{html_escape(description, quote=True)}">'
+        f'<meta name="twitter:image" content="{html_escape(image_url, quote=True)}">'
+    )
     integration = (
         '<link rel="icon" href="/static/images/batterywala-logo-original.png">'
-        '<link rel="stylesheet" href="/static/engine-integration.css?v=20260917-9">'
+        '<link rel="stylesheet" href="/static/engine-integration.css?v=20260923-1">'
+        '<link rel="stylesheet" href="/static/engine-legal.css?v=20260924-1">'
         '<meta name="application-name" content="Engine D-Carb">'
-        f'<script type="application/ld+json">{json.dumps(faq_schema, ensure_ascii=False)}</script></head>'
+        + metadata
+        + ''.join(f'<script type="application/ld+json">{json.dumps(schema, ensure_ascii=False).replace("<", "\\u003c")}</script>'
+                  for schema in (organization_schema, faq_schema)) + '</head>'
     )
-    scripts = '<script src="/static/engine-integration.js?v=20260917-9"></script></body>'
+    scripts = ('<script src="/static/engine-integration.js?v=20260924-3"></script>'
+               '<script src="/static/engine-legal.js?v=20260924-1"></script></body>')
     return Response(html.replace('</head>', integration).replace('</body>', scripts), mimetype='text/html')
 
 
 @bp.get('/engine-d-carb')
 def engine_site():
     return engine_site_response()
+
+
+@bp.get('/sitemap.xml')
+def engine_sitemap():
+    domain = (os.getenv('ENGINE_DCARB_DOMAIN') or '').strip().split(':')[0].lower()
+    if domain and request.host.split(':')[0].lower() != domain:
+        return Response('Not found', status=404)
+    origin = engine_public_origin()
+    home = origin + ('/' if domain else '/engine-d-carb')
+    urls = (home, origin + '/engine-d-carb/privacy-policy',
+            origin + '/engine-d-carb/terms-and-conditions')
+    items = ''.join(f'<url><loc>{xml_escape(url)}</loc></url>' for url in urls)
+    return Response('<?xml version="1.0" encoding="UTF-8"?>'
+                    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+                    + items + '</urlset>', mimetype='application/xml')
+
+
+@bp.get('/robots.txt')
+def engine_robots():
+    domain = (os.getenv('ENGINE_DCARB_DOMAIN') or '').strip().split(':')[0].lower()
+    rules = 'User-agent: *\nDisallow: /admin/\nDisallow: /portal\nDisallow: /api/\n'
+    if not domain or request.host.split(':')[0].lower() == domain:
+        rules += f'Sitemap: {engine_public_origin()}/sitemap.xml\n'
+    return Response(rules, mimetype='text/plain')
+
+
+@bp.get('/engine-d-carb/privacy-policy')
+@bp.get('/engine-d-carb/terms-and-conditions')
+def engine_legal_page():
+    legal_kind = 'privacy' if request.path.endswith('/privacy-policy') else 'terms'
+    return render_template('engine_legal_page.html', legal_kind=legal_kind,
+                           canonical_url=engine_public_origin() + request.path)
 
 
 @bp.get('/api/engine-d-carb/centres')
@@ -527,8 +725,8 @@ def engine_quotation():
             return jsonify(error='Enter valid numbers for year, engine CC and kilometres.'), 400
         if not 999 <= cc <= 15000 or not 2010 <= year <= 2027 or kilometres < 0:
             return jsonify(error='Use 999–15,000 CC, a registration year from 2010–2027 and valid kilometres.'), 400
-        factor = 1.1 if form['vehicleType'] == 'Car' else 1.5
-        if form['vehicleType'] == 'Car' and form['fuelType'] == 'Diesel':
+        factor = 1.1 if form['vehicleType'] in {'Car', 'Car/SUV'} else 1.5
+        if form['vehicleType'] in {'Car', 'Car/SUV'} and form['fuelType'] == 'Diesel':
             factor = 1.25
         centre = None
         if form['selectedCentre'] == 'other':
@@ -574,7 +772,7 @@ def engine_quotation():
     db.session.flush()
     from .whatsapp_webhook import track_message
     for item in result.get('whatsapp_delivery', []):
-        delivery = Delivery(channel='whatsapp', target=item['target'], status=item['status'],
+        delivery = Delivery(submission_id=submission.id, channel='whatsapp', target=item['target'], status=item['status'],
                             detail=f"{item['recipient']}: {item['detail']}")
         db.session.add(delivery)
         db.session.flush()
@@ -603,6 +801,66 @@ def add_engine_centre_contact(centre_id):
     db.session.add(EngineCentreContact(centre=centre, contact_name=contact_name, phone=phone))
     db.session.commit()
     return redirect(url_for('main.admin', site='engine_dcarb', centre_added='1'))
+
+
+def centre_fields():
+    fields = {key: request.form.get(key, '').strip() for key in ('name', 'address', 'city', 'state')}
+    if any(not value for value in fields.values()) or any(len(value) > limit for value, limit in
+            ((fields['name'], 120), (fields['address'], 500), (fields['city'], 120), (fields['state'], 120))):
+        return None
+    return fields
+
+
+@bp.post('/admin/engine-centres')
+@admin_required
+def add_engine_centre():
+    from uuid import uuid4
+    from .routes import valid_csrf
+    if not valid_csrf():
+        return ('Invalid CSRF', 400)
+    fields = centre_fields()
+    if not fields:
+        return redirect(url_for('main.admin', site='engine_dcarb', centre_error='Enter a name, address, city and state.'))
+    key = (re.sub(r'[^a-z0-9]+', '-', fields['name'].lower()).strip('-')[:30] or 'centre') + '-' + uuid4().hex[:8]
+    next_order = (db.session.query(db.func.max(EngineCentre.sort_order)).scalar() or 0) + 1
+    db.session.add(EngineCentre(key=key, sort_order=next_order, **fields))
+    db.session.commit()
+    return redirect(url_for('main.admin', site='engine_dcarb', centre_created='1') + '#engine-centres')
+
+
+@bp.post('/admin/engine-centres/<int:centre_id>/edit')
+@admin_required
+def edit_engine_centre(centre_id):
+    from .routes import valid_csrf
+    if not valid_csrf():
+        return ('Invalid CSRF', 400)
+    centre = db.get_or_404(EngineCentre, centre_id)
+    fields = centre_fields()
+    if not fields:
+        return redirect(url_for('main.admin', site='engine_dcarb', centre_error='Enter a name, address, city and state.'))
+    for key, value in fields.items():
+        setattr(centre, key, value)
+    db.session.commit()
+    return redirect(url_for('main.admin', site='engine_dcarb', centre_updated='1') + '#engine-centres')
+
+
+@bp.post('/admin/engine-centre-contacts/<int:contact_id>/edit')
+@admin_required
+def edit_engine_centre_contact(contact_id):
+    from .routes import valid_csrf
+    if not valid_csrf():
+        return ('Invalid CSRF', 400)
+    contact = db.get_or_404(EngineCentreContact, contact_id)
+    name = request.form.get('contact_name', '').strip()
+    phone = request.form.get('phone', '').strip()
+    if not name or len(name) > 120 or not re.fullmatch(r'[0-9]{10}', phone):
+        return redirect(url_for('main.admin', site='engine_dcarb', centre_error='Enter a contact name and valid 10-digit number.'))
+    existing = EngineCentreContact.query.filter_by(centre_id=contact.centre_id, phone=phone).first()
+    if existing and existing.id != contact.id:
+        return redirect(url_for('main.admin', site='engine_dcarb', centre_error='That number is already assigned to this centre.'))
+    contact.contact_name, contact.phone = name, phone
+    db.session.commit()
+    return redirect(url_for('main.admin', site='engine_dcarb', centre_updated='1') + '#engine-centres')
 
 
 @bp.post('/admin/engine-centre-contacts/<int:contact_id>/delete')
@@ -648,6 +906,15 @@ def filtered_submissions(args):
     employee_id = args.get('employee_id', '').strip()
     if employee_id.isdigit():
         query = query.filter_by(submitted_by_id=int(employee_id))
+    search = args.get('search', '').strip()[:120]
+    if search:
+        from sqlalchemy import or_
+        escaped = search.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+        pattern = f'%{escaped}%'
+        query = query.filter(or_(Submission.name.ilike(pattern, escape='\\'),
+                                 Submission.phone.ilike(pattern, escape='\\'),
+                                 Submission.email.ilike(pattern, escape='\\'),
+                                 Submission.form_json.ilike(pattern, escape='\\')))
     for key, operator in (('from', 'from'), ('to', 'to')):
         raw = args.get(key, '')
         if not raw:
@@ -660,6 +927,22 @@ def filtered_submissions(args):
         except ValueError:
             pass
     return site, query.order_by(Submission.created_at.desc())
+
+
+@bp.post('/admin/submissions/<int:submission_id>/delete')
+@admin_required
+def delete_submission(submission_id):
+    from .routes import valid_csrf
+    if not valid_csrf():
+        return ('Invalid CSRF', 400)
+    item = db.get_or_404(Submission, submission_id)
+    site = request.form.get('site', '')
+    if site != item.site:
+        return ('Invalid site', 400)
+    delete_submission_data(item)
+    db.session.commit()
+    filters = {key: request.form.get(key, '')[:120] for key in ('search', 'from', 'to', 'kind', 'employee_id')}
+    return redirect(url_for('main.admin', site=site, request_deleted='1', **filters) + '#submissions')
 
 
 def submission_dict(item):
