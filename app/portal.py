@@ -626,14 +626,14 @@ def engine_site_response():
     )
     integration = (
         '<link rel="icon" href="/static/engine-assets/engine-dcarb-logo.webp">'
-        '<link rel="stylesheet" href="/static/engine-integration.css?v=20260925-1">'
+        '<link rel="stylesheet" href="/static/engine-integration.css?v=20260925-2">'
         '<link rel="stylesheet" href="/static/engine-legal.css?v=20260924-1">'
         '<meta name="application-name" content="Engine D-Carb">'
         + metadata
         + ''.join(f'<script type="application/ld+json">{json.dumps(schema, ensure_ascii=False).replace("<", "\\u003c")}</script>'
                   for schema in (organization_schema, faq_schema)) + '</head>'
     )
-    scripts = ('<script src="/static/engine-integration.js?v=20260925-1"></script>'
+    scripts = ('<script src="/static/engine-integration.js?v=20260925-2"></script>'
                '<script src="/static/engine-legal.js?v=20260924-1"></script></body>')
     return Response(html.replace('</head>', integration).replace('</body>', scripts), mimetype='text/html')
 

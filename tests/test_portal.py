@@ -39,7 +39,7 @@ def test_consent_engine_pricing_and_retention(tmp_path):
     public_page = client.get('/engine-d-carb')
     assert b'Nothing is uploaded automatically' not in public_page.data
     assert b'engine-integration.js' in public_page.data
-    assert b'engine-integration.js?v=20260925-1' in public_page.data
+    assert b'engine-integration.js?v=20260925-2' in public_page.data
     assert b"heroPrimary.textContent='Request a quotation" not in public_page.data
     assert b'>Enquire<' not in public_page.data
     assert public_page.data.count(b'<details><summary>') == 7
