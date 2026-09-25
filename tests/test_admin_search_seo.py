@@ -84,6 +84,11 @@ def test_engine_seo_metadata_sitemap_and_canonical(tmp_path, monkeypatch):
     head = page.data.split(b'</head>', 1)[0]
     assert b'<link rel="canonical" href="http://localhost/engine-d-carb">' in head
     assert b'property="og:image"' in head and b'name="twitter:card"' in head
+    assert b'dcarb-technician-connection.webp' in head
+    proxied = client.get('/engine-d-carb', headers={'X-Forwarded-Proto': 'https'})
+    assert b'<link rel="canonical" href="https://localhost/engine-d-carb">' in proxied.data
+    tunnel = client.get('/engine-d-carb', base_url='http://preview.ngrok-free.dev')
+    assert b'<link rel="canonical" href="https://preview.ngrok-free.dev/engine-d-carb">' in tunnel.data
     assert head.count(b'"@type": "FAQPage"') == 1
     assert head.count(b'"@type": "Organization"') == 1
     sitemap = client.get('/sitemap.xml')

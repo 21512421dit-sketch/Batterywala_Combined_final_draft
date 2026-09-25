@@ -248,6 +248,17 @@
   document.getElementById('chemical-free')?.remove();
   document.getElementById('simple-process')?.remove();
   document.querySelector('#connected-system .system-secondary')?.remove();
+  const systemFeature = document.querySelector('#connected-system .system-feature');
+  const systemSlide = systemFeature?.querySelector('img');
+  if (systemSlide) {
+    systemSlide.classList.add('system-desktop-image');
+    systemSlide.insertAdjacentHTML('afterend', `<div class="system-mobile-grid" aria-label="Connected service components">
+      <figure class="system-mobile-part"><img src="/static/engine-assets/engine-dcarb-gas-analyser.webp" alt="Gas analyser" loading="lazy"><figcaption>Gas analyser</figcaption></figure>
+      <figure class="system-mobile-part"><img src="/static/engine-assets/engine-dcarb-machine.webp" alt="Engine D-Carb machine" loading="lazy"><figcaption>D-Carb machine</figcaption></figure>
+      <figure class="system-mobile-part"><img src="/static/engine-assets/engine-dcarb-mobile-monitor.webp" alt="Mobile monitoring screen" loading="lazy"><figcaption>Mobile control</figcaption></figure>
+      <figure class="system-mobile-part"><img src="/static/engine-assets/engine-dcarb-mobile-report.webp" alt="Mobile report screen" loading="lazy"><figcaption>Emission report</figcaption></figure>
+    </div>`);
+  }
   document.querySelectorAll('#technology .feature').forEach((feature, index) => {
     if (index > 5) feature.remove();
   });

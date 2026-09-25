@@ -541,11 +541,15 @@ def admin_required(fn):
 
 def engine_public_origin():
     domain = (os.getenv('ENGINE_DCARB_DOMAIN') or '').strip().split(':')[0].lower()
-    return f'https://{domain}' if domain else request.host_url.rstrip('/')
+    if domain:
+        return f'https://{domain}'
+    forwarded_proto = request.headers.get('X-Forwarded-Proto', '').split(',')[0].strip().lower()
+    scheme = 'https' if forwarded_proto == 'https' or request.host.lower().endswith('.ngrok-free.dev') else request.scheme
+    return f'{scheme}://{request.host}'
 
 
 def engine_canonical_url():
-    return engine_public_origin() + '/' if os.getenv('ENGINE_DCARB_DOMAIN', '').strip() else request.base_url
+    return engine_public_origin() + ('/' if os.getenv('ENGINE_DCARB_DOMAIN', '').strip() else request.path)
 
 
 def engine_site_response():
@@ -606,7 +610,7 @@ def engine_site_response():
         'name': 'Engine D-Carb', 'url': canonical,
         'email': public_email, 'telephone': '+91 9607069191',
     }
-    image_url = origin + '/static/engine-assets/dcarb-technician-connection.png'
+    image_url = origin + '/static/engine-assets/dcarb-technician-connection.webp'
     metadata = (
         f'<link rel="canonical" href="{html_escape(canonical, quote=True)}">'
         '<meta name="robots" content="index,follow">'
@@ -621,15 +625,15 @@ def engine_site_response():
         f'<meta name="twitter:image" content="{html_escape(image_url, quote=True)}">'
     )
     integration = (
-        '<link rel="icon" href="/static/images/batterywala-logo-original.png">'
-        '<link rel="stylesheet" href="/static/engine-integration.css?v=20260923-1">'
+        '<link rel="icon" href="/static/engine-assets/engine-dcarb-logo.webp">'
+        '<link rel="stylesheet" href="/static/engine-integration.css?v=20260925-1">'
         '<link rel="stylesheet" href="/static/engine-legal.css?v=20260924-1">'
         '<meta name="application-name" content="Engine D-Carb">'
         + metadata
         + ''.join(f'<script type="application/ld+json">{json.dumps(schema, ensure_ascii=False).replace("<", "\\u003c")}</script>'
                   for schema in (organization_schema, faq_schema)) + '</head>'
     )
-    scripts = ('<script src="/static/engine-integration.js?v=20260924-3"></script>'
+    scripts = ('<script src="/static/engine-integration.js?v=20260925-1"></script>'
                '<script src="/static/engine-legal.js?v=20260924-1"></script></body>')
     return Response(html.replace('</head>', integration).replace('</body>', scripts), mimetype='text/html')
 
